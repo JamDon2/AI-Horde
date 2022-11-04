@@ -1,6 +1,6 @@
 from flask_restx import Namespace, Resource, reqparse, fields, Api, abort
 from flask import request
-from ... import limiter, logger, maintenance, invite_only, raid, cm
+from ... import limiter, logger, maintenance, invite_only, raid, cm, cache
 from ...classes import db,processing_generations,waiting_prompts,Worker,User,WaitingPrompt,News,Suspicions
 from enum import Enum
 from .. import exceptions as e
@@ -424,6 +424,7 @@ class TransferKudos(Resource):
 
 class Workers(Resource):
     @logger.catch(reraise=True)
+    @cache.cached(timeout=10)
     @api.marshal_with(models.response_model_worker_details, code=200, description='Workers List', as_list=True, skip_none=True)
     def get(self):
         '''A List with the details of all registered and active workers
@@ -442,6 +443,7 @@ class WorkerSingle(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Owner API key", location='headers')
 
     @api.expect(get_parser)
+    @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_worker_details, code=200, description='Worker Details', skip_none=True)
     @api.response(401, 'Invalid API Key', models.response_model_error)
     @api.response(403, 'Access Denied', models.response_model_error)
@@ -583,7 +585,8 @@ class WorkerSingle(Resource):
         return(ret_dict, 200)
 
 class Users(Resource):
-    decorators = [limiter.limit("3/minute")]
+    decorators = [limiter.limit("30/minute")]
+    @cache.cached(timeout=10)
     @api.marshal_with(models.response_model_user_details, code=200, description='Users List')
     def get(self):
         '''A List with the details and statistic of all registered users
@@ -600,6 +603,7 @@ class UserSingle(Resource):
 
     decorators = [limiter.limit("60/minute", key_func = get_request_path)]
     @api.expect(get_parser)
+    @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_user_details, code=200, description='User Details', skip_none=True)
     @api.response(404, 'User Not Found', models.response_model_error)
     def get(self, user_id = ''):
@@ -736,6 +740,7 @@ class FindUser(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="User API key we're looking for", location='headers')
 
     @api.expect(get_parser)
+    @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_user_details, code=200, description='Worker Details', skip_none=True)
     @api.response(404, 'User Not Found', models.response_model_error)
     def get(self):
@@ -751,6 +756,7 @@ class FindUser(Resource):
 
 class Models(Resource):
     @logger.catch(reraise=True)
+    @cache.cached(timeout=2)
     @api.marshal_with(models.response_model_active_model, code=200, description='List All Active Models', as_list=True)
     def get(self):
         '''Returns a list of models active currently in this horde
@@ -761,6 +767,7 @@ class Models(Resource):
 class HordeLoad(Resource):
     decorators = [limiter.limit("20/minute")]
     @logger.catch(reraise=True)
+    @cache.cached(timeout=2)
     @api.marshal_with(models.response_model_horde_performance, code=200, description='Horde Performance')
     def get(self):
         '''Details about the current performance of this Horde
@@ -771,6 +778,7 @@ class HordeLoad(Resource):
 
 class HordeNews(Resource):
     @logger.catch(reraise=True)
+    @cache.cached(timeout=300)
     @api.marshal_with(models.response_model_newspiece, code=200, description='Horde News', as_list = True)
     def get(self):
         '''Read the latest happenings on the horde
@@ -786,6 +794,7 @@ class HordeModes(Resource):
 
     decorators = [limiter.limit("2/second")]
     @api.expect(get_parser)
+    @cache.cached(timeout=300)
     @api.marshal_with(models.response_model_horde_modes, code=200, description='Horde Maintenance', skip_none=True)
     def get(self):
         '''Horde Maintenance Mode Status
