@@ -681,7 +681,7 @@ class Worker:
             "nsfw": self.nsfw,
             "trusted": self.user.trusted,
             "models": self.models,
-            "team": self.team.name,
+            "team": self.team.id if self.team else 'None',
         }
         if details_privilege >= 2:
             ret_dict['paused'] = self.paused
