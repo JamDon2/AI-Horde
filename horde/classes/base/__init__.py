@@ -759,14 +759,14 @@ class PromptsIndex(Index):
 
     def count_waiting_requests(self, user):
         count = 0
-        for wp in self._index.values():
+        for wp in list(self._index.values()):
             if wp.user == user and not wp.is_completed():
                 count += wp.n
         return(count)
 
     def count_total_waiting_generations(self):
         count = 0
-        for wp in self._index.values():
+        for wp in list(self._index.values()):
             count += wp.n + wp.count_processing_gens()["processing"]
         return(count)
 
@@ -776,7 +776,7 @@ class PromptsIndex(Index):
             "queued_requests": 0,
             queued_thing: 0,
         }
-        for wp in self._index.values():
+        for wp in list(self._index.values()):
             current_wp_queue = wp.n + wp.count_processing_gens()["processing"]
             ret_dict["queued_requests"] += current_wp_queue
             if current_wp_queue > 0:
@@ -795,9 +795,6 @@ class PromptsIndex(Index):
                     things_per_model[model] = things_per_model.get(model,0) + wp.things
             things_per_model[model] = round(things_per_model.get(model,0),2)
         return(things_per_model)
-
-                
-
 
     def get_waiting_wp_by_kudos(self):
         sorted_wp_list = sorted(self._index.values(), key=lambda x: x.get_priority(), reverse=True)
