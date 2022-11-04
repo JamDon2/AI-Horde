@@ -1,6 +1,36 @@
 # Changelog
 
-## 03/11/2022
+## v2.3
+
+### API
+
+
+Please check the API documentation for each new field.
+
+### `/v2/worker/{worker_id}`
+
+* Now validation is happening via Fields
+
+#### PUT
+* New key: `reset_suspicion`
+* New key: `team`
+#### GET
+* New key: `contact`
+* New key: `team`
+
+### `/v2/users/{user_id}`
+
+* Now validation is happening via Fields
+
+#### PUT
+* New key: `reset_suspicion`
+* New key: `contact`
+#### GET
+* New key: `contact`
+
+
+
+## v2.2
 
 ### API
 
@@ -21,7 +51,7 @@ Please check the API documentation for each new field.
 
 * Tightened filter
 
-## 02/11/2022
+## v2.1
 
 ### Features
 
@@ -45,7 +75,9 @@ Please check the API documentation for each new field.
 * Prevents negative kudos transfer
 
 
-## 25/10/2022
+## v2.0
+
+This is as far back as my current changelog goes. This header does not contain all the changes until 2.0
 
 ### API
 

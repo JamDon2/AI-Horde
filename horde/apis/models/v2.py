@@ -235,3 +235,19 @@ class Models:
             'deleted_id': fields.String(description="The ID of the deleted worker"),
             'deleted_name': fields.String(description="The Name of the deleted worker"),
         })
+        self.response_model_team_details = api.model('TeamDetails', {
+            "name": fields.String(description="The Name given to this team."),
+            "id": fields.String(description="The UUID of this team."),
+            "requests_fulfilled": fields.Integer(description="How many images this team's workers have generated."),
+            "kudos": fields.Float(description="How many Kudos the workers in this team have been rewarded while part of this team."),
+            "performance": fields.String(description="The average performance of the workers in this team, in human readable form."),
+            "uptime": fields.Integer(description="The total amount of time workers have stayed online while on this team"),
+            "info": fields.String(description="Extra information or comments about this team provided by its owner.", example="No Gods, No Masters.", default=None),
+            "creater": fields.String(example="username#1", description="The alias of the user which created this team."),
+            'models': fields.List(fields.String(description="Which models the workers in this team are offerring")),
+        })
+        self.input_model_team_create = api.model('CreateTeamInput', {
+            "team_name": fields.String(description="The name of the team to create. No profanity allowed!",min_length=3,max_length=100),
+            "info": fields.String(description="Extra information or comments about this team provided.", example="No Gods, No Masters.", default=None),
+        })
+

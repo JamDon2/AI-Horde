@@ -1266,6 +1266,87 @@ class User:
                 return(True)
 
 
+class Team:
+    def __init__(self, db):
+        self.contributions = 0
+        self.fulfilments = 0
+        self.kudos = 0
+        self.uptime = 0
+        self.db = db
+        self.info = ''
+
+    def create(self, name, owner):
+        self.id = str(uuid4())
+        self.name = name
+        self.creation_date = datetime.now()
+        self.last_active = datetime.now()
+        self.user = owner
+        self.db.register_new_workerteam(self)
+
+    def get_performance(self):
+        all_performances = []
+        for worker in self.db.find_workers_by_team(self):
+            all_performances.append(worker.get_performance_average())
+        if len(all_performances):
+            ret_num = sum(all_performances) / len(all_performances)
+        else:
+            # Always sending at least 1 thing per second, to avoid divisions by zero
+            ret_num = 0
+        return(ret_num)
+
+    def get_all_models(self):
+        all_models = {}
+        for worker in self.db.find_workers_by_team(self):
+            for model_name in worker.models:
+                all_models[model_name] = all_models.get(model_name,0) + 1
+        return(all_models)
+
+    # Should be extended by each specific horde
+    @logger.catch(reraise=True)
+    def get_details(self, details_privilege = 0):
+        '''We display these in the workers list json'''
+        ret_dict = {
+            "name": self.name,
+            "id": self.id,
+            "creator": self.user,
+            "requests_fulfilled": self.fulfilments,
+            "kudos_rewards": self.kudos,
+            "performance": self.get_performance(),
+            "uptime": self.uptime,
+            "info": self.info,
+            "models": self.get_all_models(),
+            "team": self.team,
+        }
+        return(ret_dict)
+
+    # Should be extended by each specific horde
+    @logger.catch(reraise=True)
+    def serialize(self):
+        ret_dict = {
+            "oauth_id": self.user.oauth_id,
+            "name": self.name,
+            "contributions": self.contributions,
+            "fulfilments": self.fulfilments,
+            "kudos": self.kudos,
+            "last_active": self.last_active.strftime("%Y-%m-%d %H:%M:%S"),
+            "id": self.id,
+            "uptime": self.uptime,
+            "info": self.info,
+        }
+        return(ret_dict)
+
+    @logger.catch(reraise=True)
+    def deserialize(self, saved_dict, convert_flag = None):
+        self.user = self.db.find_user_by_oauth_id(saved_dict["oauth_id"])
+        self.name = saved_dict["name"]
+        self.contributions = saved_dict["contributions"]
+        self.fulfilments = saved_dict["fulfilments"]
+        self.kudos = saved_dict.get("kudos",0)
+        self.last_active = datetime.strptime(saved_dict["last_active"],"%Y-%m-%d %H:%M:%S")
+        self.id = saved_dict["id"]
+        self.uptime = saved_dict.get("uptime",0)
+        self.info = saved_dict.get("info",None)
+
 
 class Stats:
     worker_performances = []
@@ -1372,6 +1453,8 @@ class Database:
         self.stats = self.new_stats()
         self.USERS_FILE = "db/users.json"
         self.users = {}
+        self.TEAMS_FILE = "db/teams.json"
+        self.teams = {}
         # I'm setting this quickly here so that we do not crash when trying to detect duplicate IDs, during user deserialization
         self.anon = None
         # Increments any time a new user is added
@@ -1412,6 +1495,16 @@ class Database:
                     new_worker = self.new_worker()
                     new_worker.deserialize(worker_dict,convert_flag)
                     self.workers[new_worker.name] = new_worker
+        if os.path.isfile(self.TEAMS_FILE):
+            with open(self.TEAMS_FILE) as db:
+                serialized_teams = json.load(db)
+                for team_dict in serialized_teams:
+                    if not team_dict:
+                        logger.error("Found null team on db load. Bypassing")
+                        continue
+                    new_team = self.new_team()
+                    new_team.deserialize(team_dict,convert_flag)
+                    self.teams[new_team.id] = new_team
         if os.path.isfile(self.STATS_FILE):
             with open(self.STATS_FILE) as stats_db:
                 self.stats.deserialize(json.load(stats_db),convert_flag)
@@ -1436,6 +1529,8 @@ class Database:
         return(User(self))
     def new_stats(self):
         return(Stats(self))
+    def new_team(self):
+        return(Team(self))
 
     def write_files(self):
         logger.init_ok("Database Store Thread", status="Started")
@@ -1582,6 +1677,13 @@ class Database:
                 found_workers.append(worker)
         return(found_workers)
     
+    def find_workers_by_team(self, team):
+        found_workers = []
+        for worker in list(self.workers.values()):
+            if worker.team == team:
+                found_workers.append(worker)
+        return(found_workers)
+    
     def update_worker_name(self, worker, new_name):
         if new_name in self.workers:
             # If the name already exists, we return error code 1
@@ -1589,6 +1691,19 @@ class Database:
         self.workers[new_name] = worker
         del self.workers[worker.name]
         logger.info(f'Worker renamed from {worker.name} to {new_name}')
+
+    def register_new_team(self, team):
+        self.teams[team.id] = team
+        logger.info(f'New team created: {team.name} by {team.user.get_unique_alias()}')
+
+    def find_team_by_id(self,team_id):
+        return(self.teams.get(team_id))
+
+    def find_team_by_name(self,team_name):
+        for team in list(self.teams.values()):
+            if team.name == team_name:
+                return(team)
+        return(None)
 
     def get_available_models(self, waiting_prompts):
         models_dict = {}
