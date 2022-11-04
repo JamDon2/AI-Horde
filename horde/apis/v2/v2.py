@@ -843,6 +843,8 @@ class HordeModes(Resource):
             if not os.getenv("ADMINS") or admin.get_unique_alias() not in json.loads(os.getenv("ADMINS")):
                 raise e.NotAdmin(admin.get_unique_alias(), 'PUT HordeModes')
             maintenance.toggle(self.args.maintenance)
+            for wp in waiting_prompts.get_all():
+                wp.abort_for_maintenance()
             ret_dict["maintenance_mode"] = maintenance.active
         if self.args.invite_only != None:
             if not admin.moderator:

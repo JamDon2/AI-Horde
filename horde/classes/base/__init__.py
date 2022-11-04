@@ -261,6 +261,10 @@ class WaitingPrompt:
         self._waiting_prompts.del_item(self)
         del self
 
+    def abort_for_maintenance(self):
+        '''sets all waiting requests to 0, so that all clients pick them up once the client gen is completed'''
+        self.n = 0
+
     def refresh(self):
         self.last_process_time = datetime.now()
 
@@ -321,7 +325,7 @@ class ProcessingGeneration:
         self.seed = kwargs.get('seed', None)
         things_per_sec = self.owner.db.stats.record_fulfilment(things=self.owner.things, starting_time=self.start_time, model=self.model)
         self.kudos = self.get_gen_kudos()
-        if self.fake and self.worker.user != self.owner.user:
+        if self.fake and self.worker.user == self.owner.user:
             # We do not record usage for paused workers, unless the requestor was the same owner as the worker
             self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = things_per_sec)
             logger.info(f"Fake Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
@@ -338,7 +342,7 @@ class ProcessingGeneration:
         self.faulted = True
         things_per_sec = self.owner.db.stats.record_fulfilment(things=self.owner.things, starting_time=self.start_time, model=self.model)
         self.kudos = self.get_gen_kudos()
-        if self.fake and self.worker.user != self.owner.user:
+        if self.fake and self.worker.user == self.owner.user:
             # We do not record usage for paused workers, unless the requestor was the same owner as the worker
             self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = things_per_sec)
             logger.info(f"Fake Cancelled Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
