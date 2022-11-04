@@ -1,7 +1,7 @@
 from flask_restx import Namespace, Resource, reqparse, fields, Api, abort
 from flask import request
 from ... import limiter, logger, maintenance, invite_only, raid, cm, cache
-from ...classes import db,processing_generations,waiting_prompts,Worker,User,WaitingPrompt,News,Suspicions
+from ...classes import db,processing_generations,waiting_prompts,Worker,User,Team,WaitingPrompt,News,Suspicions
 from enum import Enum
 from .. import exceptions as e
 import os, time, json, re
@@ -48,6 +48,7 @@ handle_kudos_upfront = api.errorhandler(e.KudosUpfront)(e.handle_bad_requests)
 handle_invalid_procgen = api.errorhandler(e.InvalidProcGen)(e.handle_bad_requests)
 handle_request_not_found = api.errorhandler(e.RequestNotFound)(e.handle_bad_requests)
 handle_worker_not_found = api.errorhandler(e.WorkerNotFound)(e.handle_bad_requests)
+handle_team_not_found = api.errorhandler(e.TeamNotFound)(e.handle_bad_requests)
 handle_user_not_found = api.errorhandler(e.UserNotFound)(e.handle_bad_requests)
 handle_duplicate_gen = api.errorhandler(e.DuplicateGen)(e.handle_bad_requests)
 handle_request_expired = api.errorhandler(e.RequestExpired)(e.handle_bad_requests)
@@ -432,7 +433,7 @@ class Workers(Resource):
         '''
         workers_ret = []
         # I could do this with a comprehension, but this is clearer to understand
-        for worker in db.workers.values():
+        for worker in list(db.workers.values()):
             if worker.is_stale():
                 continue
             workers_ret.append(worker.get_details())
@@ -854,4 +855,162 @@ class HordeModes(Resource):
             ret_dict["raid_mode"] = raid.active
         if not len(ret_dict):
             raise e.NoValidActions("No mod change selected!")
+        return(ret_dict, 200)
+
+class Teams(Resource):
+    @logger.catch(reraise=True)
+    @cache.cached(timeout=10)
+    @api.marshal_with(models.response_model_team_details, code=200, description='Teams List', as_list=True, skip_none=True)
+    def get(self):
+        '''A List with the details of all teams
+        '''
+        teams_ret = []
+        # I could do this with a comprehension, but this is clearer to understand
+        for team in list(db.teams.values()):
+            teams_ret.append(team.get_details())
+        return(teams_ret,200)
+
+    put_parser = reqparse.RequestParser()
+    put_parser.add_argument("apikey", type=str, required=True, help="A User API key", location='headers')
+    put_parser.add_argument("name", type=str, required=True, location="json")
+    put_parser.add_argument("info", type=str, required=False, location="json")
+
+
+    decorators = [limiter.limit("30/minute", key_func = get_request_path)]
+    @api.expect(put_parser, models.input_model_team_create, validate=True)
+    @api.marshal_with(models.response_model_team_modify, code=200, description='Create Team', skip_none=True)
+    @api.response(400, 'Validation Error', models.response_model_error)
+    @api.response(401, 'Invalid API Key', models.response_model_error)
+    @api.response(403, 'Access Denied', models.response_model_error)
+    def put(self, team_id = ''):
+        '''Create a new team.
+        Only trusted users can create new teams.
+        '''
+        self.args = self.put_parser.parse_args()
+        user = db.find_user_by_api_key(self.args['apikey'])
+        if not user:
+            raise e.InvalidAPIKey('User action: ' + 'PUT Teams')
+        if user.is_anon():
+            raise e.AnonForbidden()
+        if not user.trusted:
+            raise e.NotTrusted
+        ret_dict = {}
+        team = Team(db)
+        ret = team.set_name(self.args.name)
+        if ret == "Profanity":
+            raise e.Profanity(self.user.get_unique_alias(), self.args.name, 'team name')
+        if ret == "Already Exists":
+            raise e.NameAlreadyExists(user.get_unique_alias(), team.name, self.args.name, 'team')
+        ret_dict["name"] = team.name
+        if self.args.info != None:
+            ret = team.set_info(self.args.info)
+            if ret == "Profanity":
+                raise e.Profanity(user.get_unique_alias(), self.args.info, 'team info')
+            ret_dict["info"] = team.info
+        team.create(user)
+        ret_dict["id"] = team.id
+        return(ret_dict, 200)
+
+
+class TeamSingle(Resource):
+
+    get_parser = reqparse.RequestParser()
+    get_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Owner API key", location='headers')
+
+    @api.expect(get_parser)
+    # @cache.cached(timeout=3)
+    @api.marshal_with(models.response_model_team_details, code=200, description='Team Details', skip_none=True)
+    @api.response(401, 'Invalid API Key', models.response_model_error)
+    @api.response(403, 'Access Denied', models.response_model_error)
+    @api.response(404, 'Team Not Found', models.response_model_error)
+    def get(self, team_id = ''):
+        '''Details of a worker Team'''
+        team = db.find_team_by_id(team_id)
+        if not team:
+            raise e.TeamNotFound(team_id)
+        details_privilege = 0
+        self.args = self.get_parser.parse_args()
+        if self.args.apikey:
+            admin = db.find_user_by_api_key(self.args['apikey'])
+            if not admin:
+                raise e.InvalidAPIKey('admin team details')
+            if not admin.moderator:
+                raise e.NotModerator(admin.get_unique_alias(), 'ModeratorTeamDetails')
+            details_privilege = 2
+        return(team.get_details(details_privilege),200)
+
+    patch_parser = reqparse.RequestParser()
+    patch_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Creator API key", location='headers')
+    patch_parser.add_argument("name", type=str, required=False, location="json")
+    patch_parser.add_argument("info", type=str, required=False, location="json")
+
+
+    decorators = [limiter.limit("30/minute", key_func = get_request_path)]
+    @api.expect(patch_parser, models.input_model_team_modify, validate=True)
+    @api.marshal_with(models.response_model_team_modify, code=200, description='Modify Team', skip_none=True)
+    @api.response(400, 'Validation Error', models.response_model_error)
+    @api.response(401, 'Invalid API Key', models.response_model_error)
+    @api.response(403, 'Access Denied', models.response_model_error)
+    @api.response(404, 'Team Not Found', models.response_model_error)
+    def patch(self, team_id = ''):
+        '''Update a Team's information
+        '''
+        team = db.find_team_by_id(team_id)
+        if not team:
+            raise e.TeamNotFound(team_id)
+        self.args = self.patch_parser.parse_args()
+        admin = db.find_user_by_api_key(self.args['apikey'])
+        if not admin:
+            raise e.InvalidAPIKey('User action: ' + 'PATCH TeamSingle')
+        ret_dict = {}
+        # Only creators can set info notes
+        if self.args.info != None:
+            if not admin.moderator and admin != team.user:
+                raise e.NotOwner(admin.get_unique_alias(), team.name)
+            ret = team.set_info(self.args.info)
+            if ret == "Profanity":
+                raise e.Profanity(admin.get_unique_alias(), self.args.info, 'team info')
+            ret_dict["info"] = team.info
+        if self.args.name != None:
+            if not admin.moderator and admin != team.user:
+                raise e.NotModerator(admin.get_unique_alias(), 'PATCH TeamSingle')
+            ret = team.set_name(self.args.name)
+            if ret == "Profanity":
+                raise e.Profanity(self.user.get_unique_alias(), self.args.name, 'team name')
+            if ret == "Already Exists":
+                raise e.NameAlreadyExists(user.get_unique_alias(), team.name, self.args.name, 'team')
+            ret_dict["name"] = team.name
+        if not len(ret_dict):
+            raise e.NoValidActions("No team modification selected!")
+        return(ret_dict, 200)
+
+    delete_parser = reqparse.RequestParser()
+    delete_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Owner API key", location='headers')
+
+
+    @api.expect(delete_parser)
+    @api.marshal_with(models.response_model_deleted_team, code=200, description='Delete Team')
+    @api.response(401, 'Invalid API Key', models.response_model_error)
+    @api.response(403, 'Access Denied', models.response_model_error)
+    @api.response(404, 'Team Not Found', models.response_model_error)
+    def delete(self, team_id = ''):
+        '''Delete the team entry
+        Only the team's creator or a horde moderator can use this endpoint.
+        This action is unrecoverable!
+        '''
+        team = db.find_team_by_id(team_id)
+        if not team:
+            raise e.TeamNotFound(team_id)
+        self.args = self.delete_parser.parse_args()
+        admin = db.find_user_by_api_key(self.args['apikey'])
+        if not admin:
+            raise e.InvalidAPIKey('User action: ' + 'DELETE TeamSingle')
+        if not admin.moderator and admin != team.user:
+            raise e.NotModerator(admin.get_unique_alias(), 'DELETE TeamSingle')
+        logger.warning(f'{admin.get_unique_alias()} deleted team: {team.name}')
+        ret_dict = {
+            'deleted_id': team.id,
+            'deleted_name': team.name,
+        }
+        team.delete()
         return(ret_dict, 200)

@@ -618,14 +618,6 @@ class Worker:
         self.kudos = round(self.kudos + kudos, 2)
         self.kudos_details[action] = round(self.kudos_details.get(action,0) + abs(kudos), 2) 
 
-    def get_performance_average(self):
-        if len(self.performances):
-            ret_num = sum(self.performances) / len(self.performances)
-        else:
-            # Always sending at least 1 thing per second, to avoid divisions by zero
-            ret_num = 1
-        return(ret_num)
-
     def log_aborted_job(self):
         # If the last aborted job was an hour ago, we reset the counter
         if (datetime.now() - self.last_aborted_job).seconds > 3600:
@@ -636,6 +628,14 @@ class Worker:
             self.report_suspicion(reason = Suspicions.TOO_MANY_JOBS_ABORTED)
             self.aborted_jobs = 0
         self.uncompleted_jobs += 1
+
+    def get_performance_average(self):
+        if len(self.performances):
+            ret_num = sum(self.performances) / len(self.performances)
+        else:
+            # Always sending at least 1 thing per second, to avoid divisions by zero
+            ret_num = 1
+        return(ret_num)
 
     def get_performance(self):
         if len(self.performances):
@@ -1254,11 +1254,11 @@ class User:
             self.kudos_details['accumulated'] = recalc_kudos
         self.ensure_kudos_positive()
         duplicate_user = self.db.find_user_by_id(self.id)
-        if duplicate_user:
+        if duplicate_user and duplicate_user != self:
             if duplicate_user.get_unique_alias() != self.get_unique_alias():
                 logger.error(f"mismatching duplicate IDs found! {self.get_unique_alias()} != {duplicate_user.get_unique_alias()}. Please cleanup manually!")
             else:
-                logger.warning(f"found duplicate ID: {self.get_unique_alias()}")
+                logger.warning(f"found duplicate ID: {[self,duplicate_user,self.get_unique_alias(),self.id,duplicate_user.id,duplicate_user.get_unique_alias()]}")
                 duplicate_user.kudos += self.kudos
                 if duplicate_user.last_active < self.last_active:
                     logger.warning(f"Merging {self.oauth_id} into {duplicate_user.oauth_id}")
@@ -1274,32 +1274,65 @@ class Team:
         self.uptime = 0
         self.db = db
         self.info = ''
+        self.name = ''
 
-    def create(self, name, owner):
+    def create(self, user):
         self.id = str(uuid4())
-        self.name = name
+        self.set_owner(user)
         self.creation_date = datetime.now()
         self.last_active = datetime.now()
-        self.user = owner
-        self.db.register_new_workerteam(self)
+        self.db.register_new_team(self)
 
     def get_performance(self):
         all_performances = []
         for worker in self.db.find_workers_by_team(self):
             all_performances.append(worker.get_performance_average())
         if len(all_performances):
-            ret_num = sum(all_performances) / len(all_performances)
+            ret_str = f'{round(sum(all_performances) / len(all_performances) / thing_divisor,1)} {thing_name} per second'            
         else:
             # Always sending at least 1 thing per second, to avoid divisions by zero
-            ret_num = 0
-        return(ret_num)
+            ret_str = f'No requests fulfilled yet'
+        return(ret_str)
 
     def get_all_models(self):
         all_models = {}
         for worker in self.db.find_workers_by_team(self):
             for model_name in worker.models:
                 all_models[model_name] = all_models.get(model_name,0) + 1
-        return(all_models)
+        model_list = []
+        for model in all_models:
+            minfo = {
+                "name": model,
+                "count": all_models[model]
+            }
+            model_list.append(minfo)
+        return(model_list)
+
+    def set_name(self,new_name):
+        if self.name == new_name:
+            return("OK")        
+        if is_profane(new_name):
+            return("Profanity")
+        self.name = bleach.clean(new_name)
+        existing_team = self.db.find_team_by_name(self.name)
+        if existing_team and existing_team != self:
+            return("Already Exists")
+        return("OK")
+
+    def set_info(self, new_info):
+        if self.info == new_info:
+            return("OK")
+        if is_profane(new_info):
+            return("Profanity")
+        self.info = bleach.clean(new_info)
+        return("OK")
+
+    def set_owner(self, new_owner):
+        self.user = new_owner
+
+    def delete(self):
+        self.db.delete_team(self)
+        del self
 
     # Should be extended by each specific horde
     @logger.catch(reraise=True)
@@ -1315,7 +1348,6 @@ class Team:
             "uptime": self.uptime,
             "info": self.info,
             "models": self.get_all_models(),
-            "team": self.team,
         }
         return(ret_dict)
 
@@ -1475,7 +1507,8 @@ class Database:
                     if error:
                         continue
                     if new_user.is_stale():
-                        logger.warning(f"(Dry-Run) Deleting stale user {new_user.get_unique_alias()}")
+                        # logger.warning(f"(Dry-Run) Deleting stale user {new_user.get_unique_alias()}")
+                        pass
                     self.users[new_user.oauth_id] = new_user
                     if new_user.id > self.last_user_id:
                         self.last_user_id = new_user.id
@@ -1533,11 +1566,16 @@ class Database:
         return(Team(self))
 
     def write_files(self):
+        time.sleep(4)
         logger.init_ok("Database Store Thread", status="Started")
         while True:
             self.write_files_to_disk()
             time.sleep(self.interval)
 
+    def initiate_save(self):
+        pass
+        # TODO: change the time.slep above to a counter and this function will adjust it to 10 seconds or less
+    
     @logger.catch(reraise=True)
     def write_files_to_disk(self):
         if not os.path.exists('db'):
@@ -1557,8 +1595,14 @@ class Database:
             user_serialized_list.append(user.serialize())
         with open(self.USERS_FILE, 'w') as db:
             json.dump(user_serialized_list,db)
+        teams_serialized_list = []
+        for team in self.teams.copy().values():
+            teams_serialized_list.append(team.serialize())
+        with open(self.TEAMS_FILE, 'w') as db:
+            json.dump(teams_serialized_list,db)
 
     def assign_monthly_kudos(self):
+        time.sleep(2)
         logger.init_ok("Monthly Kudos Awards Thread", status="Started")
         while True:
             for user in self.users.values():
@@ -1615,19 +1659,21 @@ class Database:
             totals["fulfilments"] += worker.fulfilments
         return(totals)
 
-
     def register_new_user(self, user):
         self.last_user_id += 1
         self.users[user.oauth_id] = user
         logger.info(f'New user created: {user.username}#{self.last_user_id}')
         return(self.last_user_id)
+        self.initiate_save()
 
     def register_new_worker(self, worker):
         self.workers[worker.name] = worker
         logger.info(f'New worker checked-in: {worker.name} by {worker.user.get_unique_alias()}')
+        self.initiate_save()
 
     def delete_worker(self,worker):
         del self.workers[worker.name]
+        self.initiate_save()
 
     def find_user_by_oauth_id(self,oauth_id):
         if oauth_id == 'anon' and not self.ALLOW_ANONYMOUS:
@@ -1695,6 +1741,7 @@ class Database:
     def register_new_team(self, team):
         self.teams[team.id] = team
         logger.info(f'New team created: {team.name} by {team.user.get_unique_alias()}')
+        self.initiate_save()
 
     def find_team_by_id(self,team_id):
         return(self.teams.get(team_id))
@@ -1704,6 +1751,11 @@ class Database:
             if team.name == team_name:
                 return(team)
         return(None)
+
+    def delete_team(self, team):
+        del self.teams[team.id]
+        self.initiate_save()
+
 
     def get_available_models(self, waiting_prompts):
         models_dict = {}
