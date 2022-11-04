@@ -115,7 +115,7 @@ class Models:
             "suspicious": fields.Integer(example=0,description="(Privileged) How much suspicion this worker has accumulated"),
             "uncompleted_jobs": fields.Integer(example=0,description="How many jobs this worker has left uncompleted after it started them."),
             'models': fields.List(fields.String(description="Which models this worker if offerring")),
-            "team": fields.String(example="Horde Commune", description="The team towards which this worker contributes kudos."),
+            "team": fields.String(example="Direct Action", description="The team ID towards which this worker contributes kudos. It an empty string ('') is passed, it will leave the worker without a team."),
             "contact": fields.String(example="email@example.com", description="(Privileged) Contact details for the horde admins to reach the owner of this worker in emergencies.",min_length=5,max_length=500),
         })
 
@@ -124,7 +124,7 @@ class Models:
             "paused": fields.Boolean(description="(Mods only) Set to true to pause this worker."),
             "info": fields.String(description="You can optionally provide a server note which will be seen in the server details. No profanity allowed!",min_length=2,max_length=1000),
             "name": fields.String(description="When this is set, it will change the worker's name. No profanity allowed!",min_length=5,max_length=100),
-            "team": fields.String(example="Horde Commune", description="The team towards which this worker contributes kudos. No profanity allowed!",min_length=3,max_length=100),
+            "team": fields.String(example="0bed257b-e57c-4327-ac64-40cdfb1ac5e6", description="The team towards which this worker contributes kudos. No profanity allowed!",min_length=3,max_length=100),
         })
 
         self.response_model_worker_modify = api.model('ModifyWorker', {
@@ -132,7 +132,7 @@ class Models:
             "paused": fields.Boolean(description="The new state of the 'paused' var for this worker. When True, this worker will not be given any new requests."),
             "info": fields.String(description="The new state of the 'info' var for this worker."),
             "name": fields.String(description="The new name for this this worker."),
-            "team": fields.String(example="Horde Commune", description="The new team of this worker."),
+            "team": fields.String(example="Direct Action", description="The new team of this worker."),
         })
 
         self.response_model_user_kudos_details = api.model('UserKudosDetails', {

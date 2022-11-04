@@ -146,7 +146,6 @@ class GenerateTemplate(Resource):
 
 class AsyncGenerate(GenerateTemplate):
 
-
     @api.expect(parsers.generate_parser, models.input_model_request_generation, validate=True)
     @api.marshal_with(models.response_model_async, code=202, description='Generation Queued', skip_none=True)
     @api.response(400, 'Validation Error', models.response_model_error)
@@ -445,7 +444,7 @@ class WorkerSingle(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Owner API key", location='headers')
 
     @api.expect(get_parser)
-    # @cache.cached(timeout=3)
+    @cache.cached(timeout=10)
     @api.marshal_with(models.response_model_worker_details, code=200, description='Worker Details', skip_none=True)
     @api.response(401, 'Invalid API Key', models.response_model_error)
     @api.response(403, 'Access Denied', models.response_model_error)
@@ -475,8 +474,7 @@ class WorkerSingle(Resource):
     put_parser.add_argument("paused", type=bool, required=False, help="Set to true to pause this worker.", location="json")
     put_parser.add_argument("info", type=str, required=False, help="You can optionally provide a server note which will be seen in the server details. No profanity allowed!", location="json")
     put_parser.add_argument("name", type=str, required=False, help="When this is set, it will change the worker's name. No profanity allowed!", location="json")
-    put_parser.add_argument("team", type=str, required=False, help="The team towards which this worker contributes kudos.", location="json")
-    put_parser.add_argument("contact", type=str, required=False, help="Contact details for the horde admins to reach the owner of this worker in emergencies.", location="json")
+    put_parser.add_argument("team", type=str, required=False, help="The team ID towards which this worker contributes kudos.", location="json")
 
 
     decorators = [limiter.limit("30/minute", key_func = get_request_path)]
@@ -544,10 +542,15 @@ class WorkerSingle(Resource):
                 raise e.NotModerator(admin.get_unique_alias(), 'PUT WorkerSingle')
             if admin.is_anon():
                 raise e.AnonForbidden()
-            ret = worker.set_team(self.args.team)
-            if ret == "Profanity":
-                raise e.Profanity(self.user.get_unique_alias(), self.args.team, 'worker team')
-            ret_dict["team"] = worker.team
+            if self.args.team == '':
+                worker.set_team(None)
+                ret_dict["team"] = 'None'
+            else:
+                team = db.find_team_by_id(self.args.team)
+                if not team:
+                    raise e.TeamNotFound(self.args.team)
+                ret = worker.set_team(team)
+                ret_dict["team"] = team.name
         if not len(ret_dict):
             raise e.NoValidActions("No worker modification selected!")
         return(ret_dict, 200)
@@ -605,7 +608,7 @@ class UserSingle(Resource):
 
     decorators = [limiter.limit("60/minute", key_func = get_request_path)]
     @api.expect(get_parser)
-    # @cache.cached(timeout=3)
+    @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_user_details, code=200, description='User Details', skip_none=True)
     @api.response(404, 'User Not Found', models.response_model_error)
     def get(self, user_id = ''):
@@ -742,7 +745,6 @@ class FindUser(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="User API key we're looking for", location='headers')
 
     @api.expect(get_parser)
-    # @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_user_details, code=200, description='Worker Details', skip_none=True)
     @api.response(404, 'User Not Found', models.response_model_error)
     def get(self):
@@ -794,9 +796,8 @@ class HordeModes(Resource):
     get_parser = reqparse.RequestParser()
     get_parser.add_argument("apikey", type=str, required=False, help="The Admin or Owner API key", location='headers')
 
-    decorators = [limiter.limit("2/second")]
     @api.expect(get_parser)
-    @cache.cached(timeout=300)
+    @cache.cached(timeout=50)
     @api.marshal_with(models.response_model_horde_modes, code=200, description='Horde Maintenance', skip_none=True)
     def get(self):
         '''Horde Maintenance Mode Status
@@ -918,7 +919,7 @@ class TeamSingle(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Owner API key", location='headers')
 
     @api.expect(get_parser)
-    # @cache.cached(timeout=3)
+    @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_team_details, code=200, description='Team Details', skip_none=True)
     @api.response(401, 'Invalid API Key', models.response_model_error)
     @api.response(403, 'Access Denied', models.response_model_error)

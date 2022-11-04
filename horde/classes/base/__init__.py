@@ -169,7 +169,7 @@ class WaitingPrompt:
                 if procgen.is_completed():
                     ret_dict["generations"].append(procgen.get_details())
         queue_pos, queued_things, queued_n = self.get_own_queue_stats()
-        # We increment the priority by 1, because it starts at 0
+        # We increment the priority by 1, because it starts at -1
         # This means when all our requests are currently processing or done, with nothing else in the queue, we'll show queue position 0 which is appropriate.
         ret_dict["queue_position"] = queue_pos + 1
         active_workers = self.db.count_active_workers()
@@ -184,6 +184,9 @@ class WaitingPrompt:
         if avg_things_per_sec == 0:
             avg_things_per_sec = 1
         wait_time = queued_things / avg_things_per_sec
+        # someone said wait_time can be -1. I don't believe them, but I check anyway
+        if wait_time < 0:
+            wait_time = 0
         # We add the expected running time of our processing gens
         highest_expected_time_left = 0
         for procgen in self.processing_gens:
@@ -507,11 +510,7 @@ class Worker:
         return("OK")
 
     def set_team(self,new_team):
-        if self.team == new_team:
-            return("OK")
-        if is_profane(new_team):
-            return("Profanity")
-        self.team = bleach.clean(new_team)
+        self.team = new_team
         return("OK")
 
     # This should be overwriten by each specific horde
@@ -534,6 +533,8 @@ class Worker:
             self.uptime += (datetime.now() - self.last_check_in).seconds
             # Every 10 minutes of uptime gets 100 kudos rewarded
             if self.uptime - self.last_reward_uptime > self.uptime_reward_threshold:
+                if self.team:
+                    self.team.record_uptime(self.uptime - self.last_reward_uptime)
                 kudos = self.calculate_uptime_reward()
                 self.modify_kudos(kudos,'uptime')
                 self.user.record_uptime(kudos)
@@ -597,7 +598,10 @@ class Worker:
 
     # We split it to its own function to make it extendable
     def convert_contribution(self,raw_things):
-        self.contributions = round(self.contributions + raw_things/thing_divisor,2)
+        converted = round(raw_things/thing_divisor,2)
+        self.contributions = round(self.contributions + converted,2)
+        # We reurn the converted amount as well in case we need it
+        return(converted)
 
     @logger.catch(reraise=True)
     def record_contribution(self, raw_things, kudos, things_per_sec):
@@ -606,8 +610,10 @@ class Worker:
         '''
         self.user.record_contributions(raw_things = raw_things, kudos = kudos)
         self.modify_kudos(kudos,'generated')
-        self.convert_contribution(raw_things)
+        converted_amount = self.convert_contribution(raw_things)
         self.fulfilments += 1
+        if self.team:
+            self.team.record_contribution(converted_amount, kudos)
         self.performances.append(things_per_sec)
         if things_per_sec / thing_divisor > things_per_sec_suspicion_threshold:
             self.report_suspicion(reason = Suspicions.UNREASONABLY_FAST, formats=[round(things_per_sec / thing_divisor,2)])
@@ -675,7 +681,7 @@ class Worker:
             "nsfw": self.nsfw,
             "trusted": self.user.trusted,
             "models": self.models,
-            "team": self.team,
+            "team": self.team.name,
         }
         if details_privilege >= 2:
             ret_dict['paused'] = self.paused
@@ -708,7 +714,7 @@ class Worker:
             "ipaddr": self.ipaddr,
             "suspicions": self.suspicions,
             "models": self.models,
-            "team": self.team,
+            "team": self.team.id if self.team else None,
         }
         return(ret_dict)
 
@@ -728,7 +734,9 @@ class Worker:
         self.maintenance = saved_dict.get("maintenance",False)
         self.paused = saved_dict.get("paused",False)
         self.info = saved_dict.get("info",None)
-        self.team = saved_dict.get("team",None)
+        team_id = saved_dict.get("team",None)
+        if team_id:
+            self.team = self.db.find_team_by_id(team_id)
         self.nsfw = saved_dict.get("nsfw",True)
         self.blacklist = saved_dict.get("blacklist",[])
         self.ipaddr = saved_dict.get("ipaddr", None)
@@ -751,7 +759,6 @@ class Worker:
             self.kudos_details['generated'] = recalc_kudos
             self.user.kudos_details['accumulated'] += self.kudos_details['uptime']
             self.user.kudos += self.kudos_details['uptime']
-
 
 
 class Index:
@@ -1331,10 +1338,22 @@ class Team:
         self.user = new_owner
 
     def delete(self):
+        for worker in self.db.find_workers_by_team(self):
+            worker.set_team(None)
         self.db.delete_team(self)
         del self
 
-    # Should be extended by each specific horde
+    def record_uptime(self, seconds):
+        self.uptime += seconds
+        self.last_active = datetime.now()
+    
+    def record_contribution(self, contributions, kudos):
+        self.contributions = round(self.contributions + contributions, 2)
+        self.fulfilments += 1
+        self.kudos = round(self.kudos + kudos, 2)
+        self.last_active = datetime.now()
+
+   # Should be extended by each specific horde
     @logger.catch(reraise=True)
     def get_details(self, details_privilege = 0):
         '''We display these in the workers list json'''
@@ -1343,7 +1362,7 @@ class Team:
             "id": self.id,
             "creator": self.user,
             "requests_fulfilled": self.fulfilments,
-            "kudos_rewards": self.kudos,
+            "kudos": self.kudos,
             "performance": self.get_performance(),
             "uptime": self.uptime,
             "info": self.info,
@@ -1748,7 +1767,7 @@ class Database:
 
     def find_team_by_name(self,team_name):
         for team in list(self.teams.values()):
-            if team.name == team_name:
+            if team.name.lower() == team_name.lower():
                 return(team)
         return(None)
 

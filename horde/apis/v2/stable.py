@@ -67,7 +67,6 @@ class AsyncGenerate(AsyncGenerate):
     def get_size_too_big_message(self):
         return("Warning: No available workers can fulfill this request. It will expire in 10 minutes. Consider reducing the size to 512x512")
 
-    
     # We split this into its own function, so that it may be overriden
     def initiate_waiting_prompt(self):
         self.wp = WaitingPrompt(
@@ -170,6 +169,7 @@ class HordeLoad(HordeLoad):
 
 class HordeNews(HordeNews):
     
+    @cache.cached(timeout=300)
     def get_news(self):
         return(horde_news + stable_horde_news)
 
