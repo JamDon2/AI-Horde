@@ -98,9 +98,11 @@ class Models:
             'models': fields.List(fields.String(description="Which models this worker is serving",min_length=3,max_length=50)),
             'bridge_version': fields.Integer(default=1,description="The version of the bridge used by this worker"),
         })
-        self.response_model_worker_details = api.model('WorkerDetails', {
+        self.response_model_worker_details_lite = api.model('WorkerDetailsLite', {
             "name": fields.String(description="The Name given to this worker."),
             "id": fields.String(description="The UUID of this worker."),
+        })
+        self.response_model_worker_details = api.inherit('WorkerDetails', self.response_model_worker_details_lite, {
             "requests_fulfilled": fields.Integer(description="How many images this worker has generated."),
             "kudos_rewards": fields.Float(description="How many Kudos this worker has been rewarded in total."),
             "kudos_details": fields.Nested(self.response_model_worker_kudos_details),
@@ -239,22 +241,23 @@ class Models:
         })
         self.response_model_team_details = api.model('TeamDetails', {
             "name": fields.String(description="The Name given to this team."),
+            "info": fields.String(description="Extra information or comments about this team provided by its owner.", example="Anarchy is emergent order.", default=None),
             "id": fields.String(description="The UUID of this team."),
             "requests_fulfilled": fields.Integer(description="How many images this team's workers have generated."),
             "kudos": fields.Float(description="How many Kudos the workers in this team have been rewarded while part of this team."),
-            "performance": fields.String(description="The average performance of the workers in this team, in megapixelsteps per second."),
             "uptime": fields.Integer(description="The total amount of time workers have stayed online while on this team"),
-            "info": fields.String(description="Extra information or comments about this team provided by its owner.", example="No Gods, No Masters.", default=None),
-            "creater": fields.String(example="username#1", description="The alias of the user which created this team."),
+            "creater": fields.String(example="db0#1", description="The alias of the user which created this team."),
+            "worker_count": fields.Integer(example=10,description="How many workers have been dedicated to this team"),
+            'workers': fields.List(fields.Nested(self.response_model_worker_details_lite)),
             'models': fields.List(fields.Nested(self.response_model_active_model_lite)),
         })
         self.input_model_team_modify = api.model('ModifyTeamInput', {
             "name": fields.String(description="The name of the team. No profanity allowed!",min_length=3, max_length=100),
-            "info": fields.String(description="Extra information or comments about this team.", example="No Gods, No Masters.", default=None, min_length=3,max_length=1000),
+            "info": fields.String(description="Extra information or comments about this team.", example="Anarchy is emergent order.", default=None, min_length=3,max_length=1000),
         })
         self.input_model_team_create = api.model('CreateTeamInput', {
             "name": fields.String(required=True, description="The name of the team. No profanity allowed!",min_length=3, max_length=100),
-            "info": fields.String(description="Extra information or comments about this team.", example="No Gods, No Masters.", default=None, min_length=3,max_length=1000),
+            "info": fields.String(description="Extra information or comments about this team.", example="Anarchy is emergent order.", default=None, min_length=3,max_length=1000),
         })
         self.response_model_deleted_team = api.model('DeletedTeam', {
             'deleted_id': fields.String(description="The ID of the deleted team"),

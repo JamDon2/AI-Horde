@@ -1295,11 +1295,12 @@ class Team:
         for worker in self.db.find_workers_by_team(self):
             all_performances.append(worker.get_performance_average())
         if len(all_performances):
-            ret_str = f'{round(sum(all_performances) / len(all_performances) / thing_divisor,1)} {thing_name} per second'            
+            perf_avg = round(sum(all_performances) / len(all_performances) / thing_divisor,1)
+            perf_total = round(sum(all_performances) / thing_divisor,1)
         else:
-            # Always sending at least 1 thing per second, to avoid divisions by zero
-            ret_str = f'No requests fulfilled yet'
-        return(ret_str)
+            perf_avg = 0
+            perf_total = 0
+        return(perf_avg,perf_total)
 
     def get_all_models(self):
         all_models = {}
@@ -1357,15 +1358,21 @@ class Team:
     @logger.catch(reraise=True)
     def get_details(self, details_privilege = 0):
         '''We display these in the workers list json'''
+        worker_list = [{"id": worker.id, "name":worker.name} for worker in self.db.find_workers_by_team(self)]
+        perf_avg, perf_total = self.get_performance()
         ret_dict = {
             "name": self.name,
             "id": self.id,
             "creator": self.user,
+            "contributions": self.contributions,
             "requests_fulfilled": self.fulfilments,
             "kudos": self.kudos,
-            "performance": self.get_performance(),
+            "performance": perf_avg,
+            "speed": perf_total,
             "uptime": self.uptime,
             "info": self.info,
+            "worker_count": len(worker_list),
+            "workers": worker_list,
             "models": self.get_all_models(),
         }
         return(ret_dict)
@@ -1536,6 +1543,16 @@ class Database:
             self.anon = User(self)
             self.anon.create_anon()
             self.users[self.anon.oauth_id] = self.anon
+        if os.path.isfile(self.TEAMS_FILE):
+            with open(self.TEAMS_FILE) as db:
+                serialized_teams = json.load(db)
+                for team_dict in serialized_teams:
+                    if not team_dict:
+                        logger.error("Found null team on db load. Bypassing")
+                        continue
+                    new_team = self.new_team()
+                    new_team.deserialize(team_dict,convert_flag)
+                    self.teams[new_team.id] = new_team
         if os.path.isfile(self.WORKERS_FILE):
             with open(self.WORKERS_FILE) as db:
                 serialized_workers = json.load(db)
@@ -1547,16 +1564,6 @@ class Database:
                     new_worker = self.new_worker()
                     new_worker.deserialize(worker_dict,convert_flag)
                     self.workers[new_worker.name] = new_worker
-        if os.path.isfile(self.TEAMS_FILE):
-            with open(self.TEAMS_FILE) as db:
-                serialized_teams = json.load(db)
-                for team_dict in serialized_teams:
-                    if not team_dict:
-                        logger.error("Found null team on db load. Bypassing")
-                        continue
-                    new_team = self.new_team()
-                    new_team.deserialize(team_dict,convert_flag)
-                    self.teams[new_team.id] = new_team
         if os.path.isfile(self.STATS_FILE):
             with open(self.STATS_FILE) as stats_db:
                 self.stats.deserialize(json.load(stats_db),convert_flag)
