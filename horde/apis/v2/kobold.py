@@ -84,9 +84,9 @@ class JobPop(JobPop):
 
 
 class HordeLoad(HordeLoad):
-    decorators = [limiter.limit("2/second")]
     # When we extend the actual method, we need to re-apply the decorators
     @logger.catch(reraise=True)
+    @cache.cached(timeout=2)
     @api.marshal_with(models.response_model_horde_performance, code=200, description='Horde Maintenance')
     def get(self):
         '''Details about the current performance of this Horde
