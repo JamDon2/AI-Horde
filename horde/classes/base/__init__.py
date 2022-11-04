@@ -263,6 +263,8 @@ class WaitingPrompt:
 
     def abort_for_maintenance(self):
         '''sets all waiting requests to 0, so that all clients pick them up once the client gen is completed'''
+        if self.is_completed():
+            return
         self.n = 0
 
     def refresh(self):
