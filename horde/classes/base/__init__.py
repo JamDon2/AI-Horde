@@ -417,6 +417,8 @@ class Worker:
         self.paused = False
         # Extra comment about the worker, set by its owner
         self.info = None
+        # The worker's team, set by its owner
+        self.team = None
         self.suspicious = 0
         # Jobs which started but never completed by the worker. We only store this as a metric
         self.uncompleted_jobs = 0
@@ -468,7 +470,13 @@ class Worker:
         if self.is_suspicious():
             self.paused = True
 
-    def is_suspicious(self): 
+    def reset_suspicion(self):
+        '''Clears the worker's suspicion and resets their reasons'''
+        self.suspicions = []
+        self.suspicious = 0
+
+    def is_suspicious(self):
+        # Trusted users are never suspicious
         if self.user.trusted:
             return(False)       
         if self.suspicious >= self.suspicion_threshold:
@@ -496,6 +504,14 @@ class Worker:
         if len(new_info) > 1000:
             return("Too Long")
         self.info = bleach.clean(new_info)
+        return("OK")
+
+    def set_team(self,new_team):
+        if self.team == new_team:
+            return("OK")
+        if is_profane(new_team):
+            return("Profanity")
+        self.team = bleach.clean(new_team)
         return("OK")
 
     # This should be overwriten by each specific horde
@@ -659,12 +675,14 @@ class Worker:
             "nsfw": self.nsfw,
             "trusted": self.user.trusted,
             "models": self.models,
+            "team": self.team,
         }
         if details_privilege >= 2:
             ret_dict['paused'] = self.paused
             ret_dict['suspicious'] = self.suspicious
         if details_privilege >= 1 or self.user.public_workers:
             ret_dict['owner'] = self.user.get_unique_alias()
+            ret_dict['contact'] = self.user.contact
         return(ret_dict)
 
     # Should be extended by each specific horde
@@ -690,6 +708,7 @@ class Worker:
             "ipaddr": self.ipaddr,
             "suspicions": self.suspicions,
             "models": self.models,
+            "team": self.team,
         }
         return(ret_dict)
 
@@ -709,6 +728,7 @@ class Worker:
         self.maintenance = saved_dict.get("maintenance",False)
         self.paused = saved_dict.get("paused",False)
         self.info = saved_dict.get("info",None)
+        self.team = saved_dict.get("team",None)
         self.nsfw = saved_dict.get("nsfw",True)
         self.blacklist = saved_dict.get("blacklist",[])
         self.ipaddr = saved_dict.get("ipaddr", None)
@@ -871,6 +891,7 @@ class User:
             "last_received": None,
         }
         self.suspicions = []
+        self.contact = None
         self.db = db
 
     def create_anon(self):
@@ -931,6 +952,14 @@ class User:
         if len(new_username) > 30:
             return("Too Long")
         self.username = bleach.clean(new_username)
+        return("OK")
+
+    def set_contact(self,new_contact):
+        if self.contact == new_contact:
+            return("OK")
+        if is_profane(new_contact):
+            return("Profanity")
+        self.contact = bleach.clean(new_contact)
         return("OK")
 
     def set_trusted(self,is_trusted):
@@ -1072,6 +1101,7 @@ class User:
             for worker in self.get_workers():
                 workers_array.append(worker.id)
             ret_dict["worker_ids"] = workers_array
+            ret_dict['contact'] = self.contact
         if details_privilege >= 2:
             mk_dict = {
                 "amount": self.calculate_monthly_kudos(),
@@ -1093,6 +1123,15 @@ class User:
         if reason:
             reason_log = suspicion_logs[reason].format(*formats)
             logger.warning(f"User '{self.id}' suspicion increased to {self.suspicious}. Reason: {reason}")
+
+    def reset_suspicion(self):
+        '''Clears the user's suspicion and resets their reasons'''
+        if self.is_anon():
+            return
+        self.suspicions = []
+        self.suspicious = 0
+        for worker in self.db.find_workers_by_user(self):
+            worker.reset_suspicion()
 
     def get_workers(self):
         return(self.db.find_workers_by_user(self))
@@ -1169,6 +1208,7 @@ class User:
             "last_active": self.last_active.strftime("%Y-%m-%d %H:%M:%S"),
             "monthly_kudos": serialized_monthly_kudos,
             "evaluating_kudos": self.evaluating_kudos,
+            "contact": self.contact,
         }
         return(ret_dict)
 
@@ -1188,6 +1228,7 @@ class User:
         # I am putting int() here, to convert a boolean entry I had in the past
         self.worker_invited = int(saved_dict.get("worker_invited", 0))
         self.suspicions = saved_dict.get("suspicions", [])
+        self.contact = saved_dict.get("contact",None)
         for suspicion in self.suspicions:
             self.suspicious += 1
             logger.debug(f"Suspecting user {self.get_unique_alias()} for {self.suspicious} with reasons {self.suspicions}")
@@ -1499,7 +1540,7 @@ class Database:
         return(self.users.get(oauth_id))
 
     def find_user_by_username(self, username):
-        for user in self.users.values():
+        for user in list(self.users.values()):
             ulist = username.split('#')
             # This approach handles someone cheekily putting # in their username
             if user.username == "#".join(ulist[:-1]) and user.id == int(ulist[-1]):
@@ -1509,7 +1550,7 @@ class Database:
         return(None)
 
     def find_user_by_id(self, user_id):
-        for user in self.users.values():
+        for user in list(self.users.values()):
             # The arguments passed to the URL are always strings
             if str(user.id) == str(user_id):
                 if user == self.anon and not self.ALLOW_ANONYMOUS:
@@ -1518,7 +1559,7 @@ class Database:
         return(None)
 
     def find_user_by_api_key(self,api_key):
-        for user in self.users.values():
+        for user in list(self.users.values()):
             if user.api_key == api_key:
                 if user == self.anon and not self.ALLOW_ANONYMOUS:
                     return(None)
@@ -1529,10 +1570,25 @@ class Database:
         return(self.workers.get(worker_name))
 
     def find_worker_by_id(self,worker_id):
-        for worker in self.workers.values():
+        for worker in list(self.workers.values()):
             if worker.id == worker_id:
                 return(worker)
         return(None)
+
+    def find_workers_by_user(self, user):
+        found_workers = []
+        for worker in list(self.workers.values()):
+            if worker.user == user:
+                found_workers.append(worker)
+        return(found_workers)
+    
+    def update_worker_name(self, worker, new_name):
+        if new_name in self.workers:
+            # If the name already exists, we return error code 1
+            return(1)
+        self.workers[new_name] = worker
+        del self.workers[worker.name]
+        logger.info(f'Worker renamed from {worker.name} to {new_name}')
 
     def get_available_models(self, waiting_prompts):
         models_dict = {}
@@ -1606,18 +1662,3 @@ class Database:
         kudos = round(things,2)
         return(kudos)
 
-
-    def find_workers_by_user(self, user):
-        found_workers = []
-        for worker in self.workers.values():
-            if worker.user == user:
-                found_workers.append(worker)
-        return(found_workers)
-    
-    def update_worker_name(self, worker, new_name):
-        if new_name in self.workers:
-            # If the name already exists, we return error code 1
-            return(1)
-        self.workers[new_name] = worker
-        del self.workers[worker.name]
-        logger.info(f'Worker renamed from {worker.name} to {new_name}')

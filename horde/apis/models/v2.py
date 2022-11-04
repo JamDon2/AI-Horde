@@ -115,6 +115,16 @@ class Models:
             "suspicious": fields.Integer(example=0,description="(Privileged) How much suspicion this worker has accumulated"),
             "uncompleted_jobs": fields.Integer(example=0,description="How many jobs this worker has left uncompleted after it started them."),
             'models': fields.List(fields.String(description="Which models this worker if offerring")),
+            "team": fields.String(example="Horde Commune", description="The team towards which this worker contributes kudos."),
+            "contact": fields.String(example="email@example.com", description="(Privileged) Contact details for the horde admins to reach the owner of this worker in emergencies.",min_length=5,max_length=500),
+        })
+
+        self.input_model_worker_modify = api.model('ModifyWorkerInput', {
+            "maintenance": fields.Boolean(description="(Mods only) Set to true to put this worker into maintenance."),
+            "paused": fields.Boolean(description="(Mods only) Set to true to pause this worker."),
+            "info": fields.String(description="You can optionally provide a server note which will be seen in the server details. No profanity allowed!",min_length=2,max_length=1000),
+            "name": fields.String(description="When this is set, it will change the worker's name. No profanity allowed!",min_length=5,max_length=100),
+            "team": fields.String(example="Horde Commune", description="The team towards which this worker contributes kudos. No profanity allowed!",min_length=3,max_length=100),
         })
 
         self.response_model_worker_modify = api.model('ModifyWorker', {
@@ -122,6 +132,7 @@ class Models:
             "paused": fields.Boolean(description="The new state of the 'paused' var for this worker. When True, this worker will not be given any new requests."),
             "info": fields.String(description="The new state of the 'info' var for this worker."),
             "name": fields.String(description="The new name for this this worker."),
+            "team": fields.String(example="Horde Commune", description="The new team of this worker."),
         })
 
         self.response_model_user_kudos_details = api.model('UserKudosDetails', {
@@ -159,9 +170,24 @@ class Models:
             "trusted": fields.Boolean(example=False,description="This user is a trusted member of the Horde."),
             "suspicious": fields.Integer(example=0,description="(Privileged) How much suspicion this user has accumulated"),
             "pseudonymous": fields.Boolean(example=False,description="If true, this user has not registered using an oauth service."),
+            "contact": fields.String(example="email@example.com", description="(Privileged) Contact details for the horde admins to reach the user in case of emergency."),
             # I need to pass these two via inheritabce, or they take over
             # "usage": fields.Nested(self.response_model_use_details),
             # "contributions": fields.Nested(self.response_model_contrib_details),
+        })
+
+        self.input_model_user_details = api.model('ModifyUserInput', {
+            "kudos": fields.Float(description="The amount of kudos to modify (can be negative)"),
+            "concurrency": fields.Integer(description="The amount of concurrent request this user can have",min=0, max=100),
+            "usage_multiplier": fields.Float(description="The amount by which to multiply the users kudos consumption",min=0.1, max=10),    
+            "worker_invited": fields.Integer(description="Set to the amount of workers this user is allowed to join to the horde when in worker invite-only mode."),
+            "moderator": fields.Boolean(example=False,description="Set to true to Make this user a horde moderator"),
+            "public_workers": fields.Boolean(example=False,description="Set to true to Make this user a display their worker IDs"),
+            "monthly_kudos": fields.Integer(description="When specified, will start assigning the user monthly kudos, starting now!",min=0),
+            "username": fields.String(description="When specified, will change the username. No profanity allowed!",min_length=3,max_length=100),
+            "trusted": fields.Boolean(example=False,description="When set to true,the user and their servers will not be affected by suspicion"),
+            "reset_suspicion": fields.Boolean(description="Set the user's suspicion back to 0"),
+            "contact": fields.String(example="email@example.com", description="Contact details for the horde admins to reach the user in case of emergency. This is only visible to horde moderators.",min_length=5,max_length=500),
         })
 
         self.response_model_user_modify = api.model('ModifyUser', {
@@ -174,6 +200,8 @@ class Models:
             "username": fields.String(example='username#1',description="The user's new username."),
             "monthly_kudos": fields.Integer(example=0,description="The user's new monthly kudos total"),
             "trusted": fields.Boolean(description="The user's new trusted status"),
+            "new_suspicion": fields.Integer(description="The user's new suspiciousness rating"),
+            "contact": fields.String(example="email@example.com", description="The new contact details"),
         })
 
         self.response_model_horde_performance = api.model('HordePerformance', {

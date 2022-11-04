@@ -471,10 +471,12 @@ class WorkerSingle(Resource):
     put_parser.add_argument("paused", type=bool, required=False, help="Set to true to pause this worker.", location="json")
     put_parser.add_argument("info", type=str, required=False, help="You can optionally provide a server note which will be seen in the server details. No profanity allowed!", location="json")
     put_parser.add_argument("name", type=str, required=False, help="When this is set, it will change the worker's name. No profanity allowed!", location="json")
+    put_parser.add_argument("team", type=str, required=False, help="The team towards which this worker contributes kudos.", location="json")
+    put_parser.add_argument("contact", type=str, required=False, help="Contact details for the horde admins to reach the owner of this worker in emergencies.", location="json")
 
 
     decorators = [limiter.limit("30/minute", key_func = get_request_path)]
-    @api.expect(put_parser)
+    @api.expect(put_parser, models.input_model_worker_modify, validate=True)
     @api.marshal_with(models.response_model_worker_modify, code=200, description='Modify Worker', skip_none=True)
     @api.response(400, 'Validation Error', models.response_model_error)
     @api.response(401, 'Invalid API Key', models.response_model_error)
@@ -533,6 +535,15 @@ class WorkerSingle(Resource):
             if ret == "Already Exists":
                 raise e.NameAlreadyExists(admin.get_unique_alias(), worker.name, self.args.name)
             ret_dict["name"] = worker.name
+        if self.args.team != None:
+            if not admin.moderator and admin != worker.user:
+                raise e.NotModerator(admin.get_unique_alias(), 'PUT WorkerSingle')
+            if admin.is_anon():
+                raise e.AnonForbidden()
+            ret = worker.set_team(self.args.team)
+            if ret == "Profanity":
+                raise e.Profanity(self.user.get_unique_alias(), self.args.team, 'worker team')
+            ret_dict["team"] = worker.team
         if not len(ret_dict):
             raise e.NoValidActions("No worker modification selected!")
         return(ret_dict, 200)
@@ -623,9 +634,11 @@ class UserSingle(Resource):
     parser.add_argument("username", type=str, required=False, help="When specified, will change the username. No profanity allowed!", location="json")
     parser.add_argument("monthly_kudos", type=int, required=False, help="When specified, will start assigning the user monthly kudos, starting now!", location="json")
     parser.add_argument("trusted", type=bool, required=False, help="When set to true,the user and their servers will not be affected by suspicion", location="json")
+    parser.add_argument("contact", type=str, required=False, location="json")
+    parser.add_argument("reset_suspicion", type=bool, required=False, location="json")
 
     decorators = [limiter.limit("60/minute", key_func = get_request_path)]
-    @api.expect(parser)
+    @api.expect(parser, models.input_model_user_details, validate=True)
     @api.marshal_with(models.response_model_user_modify, code=200, description='Modify User', skip_none=True)
     @api.response(400, 'Validation Error', models.response_model_error)
     @api.response(401, 'Invalid API Key', models.response_model_error)
@@ -642,6 +655,7 @@ class UserSingle(Resource):
         if not admin:
             raise e.InvalidAPIKey('Admin action: ' + 'PUT UserSingle')
         ret_dict = {}
+        # Admin Access
         if self.args.kudos != None:
             if not os.getenv("ADMINS") or admin.get_unique_alias() not in json.loads(os.getenv("ADMINS")):
                 raise e.NotAdmin(admin.get_unique_alias(), 'PUT UserSingle')
@@ -662,7 +676,7 @@ class UserSingle(Resource):
                 raise e.NotAdmin(admin.get_unique_alias(), 'PUT UserSingle')
             user.set_moderator(self.args.moderator)
             ret_dict["moderator"] = user.moderator
-        # Moderator Duties
+        # Moderator Access
         if self.args.concurrency != None:
             if not admin.moderator:
                 raise e.NotModerator(admin.get_unique_alias(), 'PUT UserSingle')
@@ -678,6 +692,12 @@ class UserSingle(Resource):
                 raise e.NotModerator(admin.get_unique_alias(), 'PUT UserSingle')
             user.set_trusted(self.args.trusted)
             ret_dict["trusted"] = user.trusted
+        if self.args.reset_suspicion != None:
+            if not admin.moderator:
+                raise e.NotModerator(admin.get_unique_alias(), 'PUT UserSingle')
+            user.reset_suspicion()
+            ret_dict["new_suspicion"] = user.suspicious
+        # User Access
         if self.args.public_workers != None:
             if not admin.moderator and admin != user:
                 raise e.NotModerator(admin.get_unique_alias(), 'PUT UserSingle')
@@ -696,6 +716,15 @@ class UserSingle(Resource):
             if ret == "Too Long":
                 raise e.TooLong(admin.get_unique_alias(), len(self.args.username), 30, 'username')
             ret_dict["username"] = user.username
+        if self.args.contact != None:
+            if not admin.moderator and admin != user:
+                raise e.NotModerator(admin.get_unique_alias(), 'PUT UserSingle')
+            if admin.is_anon():
+                raise e.AnonForbidden()
+            ret = user.set_contact(self.args.contact)
+            if ret == "Profanity":
+                raise e.Profanity(admin.get_unique_alias(), self.args.contact, 'worker contact')
+            ret_dict["contact"] = user.contact
         if not len(ret_dict):
             raise e.NoValidActions("No usermod operations selected!")
         return(ret_dict, 200)
