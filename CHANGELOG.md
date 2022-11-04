@@ -2,10 +2,25 @@
 
 ## v2.3
 
+
+### Features
+
+* Added ability to create teams and join them with workers. 
+    Each worker will record how much kudos, requests and MPS they're generated to their team. This has no utility by itself other than allowinf self-organization.
+    The new APIs developed allow **trusted users** to create new teams, but anyone can dedicate their worker to a specific team by using the worker PUT.
+    You can list all teams or query a specific one.
+* Added cache to the various endpoints. My server started lagging because python started getting overwhelmed from all the calculations. This helps release some of this stress
+    at the cost of some data not being up to date. The big APIs like /users and /workers are caching for 10 seconds, while individual users and workers and the model list do so only for a couple seconds. This is mostly to help with the hundreds of users on UIs hammering for details.
+
+
 ### API
 
-
 Please check the API documentation for each new field.
+
+### New Endpoints
+
+* `/v2/teams/
+* `/v2/teams/{team_id}`
 
 ### `/v2/worker/{worker_id}`
 
@@ -32,15 +47,6 @@ Please check the API documentation for each new field.
 
 ## v2.2
 
-### API
-
-Please check the API documentation for each new field.
-
-#### `/v2/generate/check/{id}`
-
-* New key: `kudos`
-* New key: `is_possible`
-
 ### Features
 
 * New requests for specific server IDs will abort immediately if that ID does not correspons to a server
@@ -50,6 +56,15 @@ Please check the API documentation for each new field.
 ### Countermeasures
 
 * Tightened filter
+
+### API
+
+Please check the API documentation for each new field.
+
+#### `/v2/generate/check/{id}`
+
+* New key: `kudos`
+* New key: `is_possible`
 
 ## v2.1
 
@@ -79,6 +94,16 @@ Please check the API documentation for each new field.
 
 This is as far back as my current changelog goes. This header does not contain all the changes until 2.0
 
+### Countermeasures 
+
+* Increased suspicion threshold
+* More Corrupt prompts filtering
+
+### Bugs
+
+* Fix bad kudos transfer marshalling
+* Avoid runtime error during /users retrieve
+
 ### API
 
 Please check the API documentation for each new field.
@@ -97,13 +122,3 @@ Added performance info on models
 * New key: `performance`
 * New key: `queued`
 * New key: `eta`
-
-### Countermeasures 
-
-* Increased suspicion threshold
-* More Corrupt prompts filtering
-
-### Bugs
-
-* Fix bad kudos transfer marshalling
-* Avoid runtime error during /users retrieve
