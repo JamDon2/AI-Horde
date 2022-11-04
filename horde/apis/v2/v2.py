@@ -244,6 +244,7 @@ class AsyncCheck(Resource):
     # Increasing this until I can figure out how to pass original IP from reverse proxy
     decorators = [limiter.limit("10/second", key_func = get_request_path)]
     @api.marshal_with(models.response_model_wp_status_lite, code=200, description='Async Request Status Check')
+    # @cache.cached(timeout=0.5)
     @api.response(404, 'Request Not found', models.response_model_error)
     def get(self, id = ''):
         '''Retrieve the status of an Asynchronous generation request without images.
@@ -443,7 +444,7 @@ class WorkerSingle(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="The Moderator or Owner API key", location='headers')
 
     @api.expect(get_parser)
-    @cache.cached(timeout=3)
+    # @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_worker_details, code=200, description='Worker Details', skip_none=True)
     @api.response(401, 'Invalid API Key', models.response_model_error)
     @api.response(403, 'Access Denied', models.response_model_error)
@@ -592,7 +593,7 @@ class UserSingle(Resource):
 
     decorators = [limiter.limit("60/minute", key_func = get_request_path)]
     @api.expect(get_parser)
-    @cache.cached(timeout=3)
+    # @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_user_details, code=200, description='User Details', skip_none=True)
     @api.response(404, 'User Not Found', models.response_model_error)
     def get(self, user_id = ''):
@@ -711,7 +712,7 @@ class FindUser(Resource):
     get_parser.add_argument("apikey", type=str, required=False, help="User API key we're looking for", location='headers')
 
     @api.expect(get_parser)
-    @cache.cached(timeout=3)
+    # @cache.cached(timeout=3)
     @api.marshal_with(models.response_model_user_details, code=200, description='Worker Details', skip_none=True)
     @api.response(404, 'User Not Found', models.response_model_error)
     def get(self):
@@ -736,7 +737,7 @@ class Models(Resource):
 
 
 class HordeLoad(Resource):
-    decorators = [limiter.limit("20/minute")]
+    # decorators = [limiter.limit("20/minute")]
     @logger.catch(reraise=True)
     @cache.cached(timeout=2)
     @api.marshal_with(models.response_model_horde_performance, code=200, description='Horde Performance')
