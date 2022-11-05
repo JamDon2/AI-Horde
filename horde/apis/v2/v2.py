@@ -122,13 +122,17 @@ class GenerateTemplate(Resource):
         if ip_timeout:
             raise e.TimeoutIP(self.user_ip, ip_timeout)
         prompt_suspicion = 0
+        if "###" in self.args.prompt:
+            prompt, negprompt = self.args.prompt.split("###", 1)
+        else:
+            prompt = self.args.prompt
         for blacklist in regex_blacklists:
-            if blacklist.search(self.args["prompt"]):
+            if blacklist.search(prompt):
                 prompt_suspicion += 1
         if prompt_suspicion >= 2:
             self.user.report_suspicion(1,Suspicions.CORRUPT_PROMPT)
             cm.report_suspicion(self.user_ip)
-            raise e.CorruptPrompt(self.username, self.user_ip, self.args["prompt"])
+            raise e.CorruptPrompt(self.username, self.user_ip, prompt)
 
     
     # We split this into its own function, so that it may be overriden
