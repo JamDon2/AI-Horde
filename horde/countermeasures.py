@@ -87,7 +87,7 @@ def report_suspicion(ipaddr):
 	# Fibonacci FTW!
 	timeout = (current_suspicion + current_suspicion + 1) * 3
 	set_timeout(ipaddr,timeout)
-	return(current_suspicion)
+	return(timeout)
 
 def retrieve_suspicion(ipaddr):
 	'''Checks the current suspicion of an IP address'''
@@ -100,9 +100,9 @@ def retrieve_suspicion(ipaddr):
 
 def set_timeout(ipaddr, minutes):
 	'''Puts the ip address into timeout'''
-	logger.debug(f"Putting {ipaddr} in timeout for {minutes} minutes")
 	if not ip_t_r:
 		return
+	logger.warn(f"Putting {ipaddr} in timeout for {minutes} minutes")
 	ip_t_r.setex(ipaddr, timedelta(minutes=minutes), int(True))
 
 def retrieve_timeout(ipaddr):
@@ -110,9 +110,11 @@ def retrieve_timeout(ipaddr):
 	if not ip_t_r:
 		return(test_timeout*3*60)
 	has_timeout = ip_t_r.get(ipaddr)
-	if not has_timeout:
+	if not bool(has_timeout):
+		logger.warning(f"No timeout found for {ipaddr}")
 		return(0)
 	ttl = ip_t_r.ttl(ipaddr)
+	logger.warning(f"{int(ttl)} found for {ipaddr}")
 	return(int(ttl))
 
 def delete_timeout(ipaddr):
