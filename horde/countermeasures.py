@@ -119,3 +119,4 @@ def delete_timeout(ipaddr):
 	if not ip_t_r:
 		return
 	ip_t_r.delete(ipaddr)
+	ip_s_r.delete(ipaddr)
