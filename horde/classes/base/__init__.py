@@ -527,8 +527,8 @@ class Worker:
     # This should be extended by each specific horde
     def check_in(self, **kwargs):
         self.models = [bleach.clean(model_name) for model_name in kwargs.get("models")]
-        # We don't allow more workers to claim they can server more than 20 models atm (to prevent abuse)
-        del self.models[20:]
+        # We don't allow more workers to claim they can server more than 30 models atm (to prevent abuse)
+        del self.models[30:]
         self.nsfw = kwargs.get("nsfw", True)
         self.blacklist = kwargs.get("blacklist", [])
         self.ipaddr = kwargs.get("ipaddr", None)

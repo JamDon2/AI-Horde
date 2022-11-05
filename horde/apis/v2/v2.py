@@ -4,7 +4,7 @@ from ... import limiter, logger, maintenance, invite_only, raid, cm, cache
 from ...classes import db,processing_generations,waiting_prompts,Worker,User,Team,WaitingPrompt,News,Suspicions
 from enum import Enum
 from .. import exceptions as e
-import os, time, json, re
+import os, time, json, re, bleach
 from .. import ModelsV2, ParsersV2
 from ...utils import is_profane
 
@@ -337,7 +337,8 @@ class JobPop(Resource):
         self.user = db.find_user_by_api_key(self.args['apikey'])
         if not self.user:
             raise e.InvalidAPIKey('prompt pop')
-        self.worker = db.find_worker_by_name(self.args['name'])
+        self.worker_name = bleach.clean(self.args['name'])
+        self.worker = db.find_worker_by_name(self.worker_name)
         self.safe_ip = True
         if not self.worker or not self.worker.user.trusted:
             self.safe_ip = cm.is_ip_safe(self.worker_ip)
@@ -352,17 +353,17 @@ class JobPop(Resource):
                 if not self.safe_ip and not raid.active:
                     raise e.UnsafeIP(self.worker_ip)
         if not self.worker:
-            if is_profane(self.args['name']):
-                raise e.Profanity(self.user.get_unique_alias(), self.args['name'], 'worker name')
+            if is_profane(self.worker_name):
+                raise e.Profanity(self.user.get_unique_alias(), self.worker_name, 'worker name')
             worker_count = self.user.count_workers()
             if invite_only.active and worker_count >= self.user.worker_invited:
                 raise e.WorkerInviteOnly(worker_count)
             if self.user.exceeding_ipaddr_restrictions(self.worker_ip):
                 raise e.TooManySameIPs(self.user.username)
             self.worker = Worker(db)
-            self.worker.create(self.user, self.args['name'])
+            self.worker.create(self.user, self.worker_name)
         if self.user != self.worker.user:
-            raise e.WrongCredentials(self.user.get_unique_alias(), self.args['name'])
+            raise e.WrongCredentials(self.user.get_unique_alias(), self.worker_name)
     
     # We split this to its own function so that it can be extended with the specific vars needed to check in
     # You typically never want to use this template's function without extending it
