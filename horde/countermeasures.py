@@ -79,7 +79,9 @@ def report_suspicion(ipaddr):
 		logger.debug(f"Redis not available, so setting test_timeout to {test_timeout}")
 		set_timeout(ipaddr,timeout)
 		return(test_timeout)
-	current_suspicion = ip_s_r.get(ipaddr, 0)
+	current_suspicion = ip_s_r.get(ipaddr)
+	if current_suspicion == None:
+		current_suspicion = 0
 	ip_s_r.setex(ipaddr, timedelta(hours=24), current_suspicion + 1)
 	# Fibonacci FTW!
 	timeout = (current_suspicion + current_suspicion + 1) * 3
