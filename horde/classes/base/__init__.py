@@ -342,7 +342,8 @@ class ProcessingGeneration:
         if self.is_completed() or self.is_faulted():
             return
         self.faulted = True
-        things_per_sec = self.owner.db.stats.record_fulfilment(things=self.owner.things, starting_time=self.start_time, model=self.model)
+        # We  don't want cancelled requests to raise suspicion
+        things_per_sec = self.worker.get_performance_average()
         self.kudos = self.get_gen_kudos()
         if self.fake and self.worker.user == self.owner.user:
             # We do not record usage for paused workers, unless the requestor was the same owner as the worker
