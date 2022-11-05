@@ -102,7 +102,6 @@ def set_timeout(ipaddr, minutes):
 	'''Puts the ip address into timeout'''
 	if not ip_t_r:
 		return
-	logger.warn(f"Putting {ipaddr} in timeout for {minutes} minutes")
 	ip_t_r.setex(ipaddr, timedelta(minutes=minutes), int(True))
 
 def retrieve_timeout(ipaddr):
