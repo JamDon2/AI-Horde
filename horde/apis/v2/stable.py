@@ -56,9 +56,9 @@ class AsyncGenerate(AsyncGenerate):
             # We allow unsafe IPs when being rate limited as they're only temporary
             if self.safe_ip == None:
                 self.safe_ip = True
-                # We actually block img2img from unsafe IPs for now.
-                if self.args.source_image:
-                    raise e.NotTrusted
+            # We actually block unsafe IPs for now to combat CP
+            if not self.safe_ip:
+                raise e.NotTrusted
         if self.args.source_mask and self.args.source_processing == 'img2img':
             raise e.SourceMaskUnnecessary
         if len(self.args['prompt'].split()) > 500:
@@ -192,3 +192,4 @@ api.add_resource(Models, "/status/models")
 api.add_resource(HordeNews, "/status/news")
 api.add_resource(Teams, "/teams")
 api.add_resource(TeamSingle, "/teams/<string:team_id>")
+api.add_resource(OperationsIP, "/operations/ipaddr")

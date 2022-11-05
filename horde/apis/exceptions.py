@@ -119,6 +119,11 @@ class UnsafeIP(wze.Forbidden):
         self.specific = f"Due to abuse prevention, we cannot accept more workers from your IP address. Please contact us on Discord if you feel this is a mistake."
         self.log = f"Worker attempted to pop from unsafe IP: {ipaddr}"
 
+class TimeoutIP(wze.Forbidden):
+    def __init__(self, ipaddr, ttl):
+        self.specific = f"Due to abuse prevention, your IP address has been put into timeout for {ttl} more seconds. Please try again later, or contact us on discord if you think this was an error."
+        self.log = f"Client attempted to generate from {ipaddr} while in {ttl} seconds timeout"
+
 class TooManyNewIPs(wze.Forbidden):
     def __init__(self, ipaddr):
         self.specific = f"We are getting too many new workers from unknown IPs. To prevent abuse, please try again later. If this persists, please contact us on discord https://discord.gg/3DxrhksKzn "

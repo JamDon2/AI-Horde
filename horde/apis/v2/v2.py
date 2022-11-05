@@ -43,6 +43,7 @@ handle_worker_maintenance = api.errorhandler(e.WorkerMaintenance)(e.handle_bad_r
 handle_too_many_same_ips = api.errorhandler(e.TooManySameIPs)(e.handle_bad_requests)
 handle_worker_invite_only = api.errorhandler(e.WorkerInviteOnly)(e.handle_bad_requests)
 handle_unsafe_ip = api.errorhandler(e.UnsafeIP)(e.handle_bad_requests)
+handle_timeout_ip = api.errorhandler(e.TimeoutIP)(e.handle_bad_requests)
 handle_too_many_new_ips = api.errorhandler(e.TooManyNewIPs)(e.handle_bad_requests)
 handle_kudos_upfront = api.errorhandler(e.KudosUpfront)(e.handle_bad_requests)
 handle_invalid_procgen = api.errorhandler(e.InvalidProcGen)(e.handle_bad_requests)
@@ -117,12 +118,16 @@ class GenerateTemplate(Resource):
                     raise e.WorkerNotFound(worker_id)
         if wp_count >= self.user.concurrency:
             raise e.TooManyPrompts(self.username, wp_count)
+        ip_timeout = cm.retrieve_timeout(self.user_ip)
+        if ip_timeout:
+            raise e.TimeoutIP(self.user_ip, ip_timeout)
         prompt_suspicion = 0
         for blacklist in regex_blacklists:
             if blacklist.search(self.args["prompt"]):
                 prompt_suspicion += 1
         if prompt_suspicion >= 2:
-            self.user.report_suspicion(2,Suspicions.CORRUPT_PROMPT)
+            self.user.report_suspicion(1,Suspicions.CORRUPT_PROMPT)
+            cm.report_suspicion(self.user_ip)
             raise e.CorruptPrompt(self.username, self.user_ip, self.args["prompt"])
 
     
@@ -1017,3 +1022,29 @@ class TeamSingle(Resource):
         }
         team.delete()
         return(ret_dict, 200)
+
+
+class OperationsIP(Resource):
+    delete_parser = reqparse.RequestParser()
+    delete_parser.add_argument("apikey", type=str, required=True, help="A mod API key", location='headers')
+    delete_parser.add_argument("ipaddr", type=str, required=True, location="json")
+
+    @api.expect(delete_parser, models.input_model_delete_ip_timeout, validate=True)
+    @api.marshal_with(models.response_model_simple_response, code=200, description='Operation Completed', skip_none=True)
+    @api.response(400, 'Validation Error', models.response_model_error)
+    @api.response(401, 'Invalid API Key', models.response_model_error)
+    @api.response(403, 'Access Denied', models.response_model_error)
+    def delete(self, team_id = ''):
+        '''Remove an IP from timeout.
+        Only usable by horde moderators
+        '''
+        self.args = self.delete_parser.parse_args()
+        mod = db.find_user_by_api_key(self.args['apikey'])
+        if not mod:
+            raise e.InvalidAPIKey('User action: ' + 'DELETE OperationsIP')
+        if not mod.moderator:
+            raise e.NotModerator(mod.get_unique_alias(), 'DELETE OperationsIP')
+        cm.delete_timeout(self.args.ipaddr)
+        return({"message":'OK'}, 200)
+
+        

@@ -269,4 +269,10 @@ class Models:
             'name': fields.String(description="The Name of the team"),
             'info': fields.String(description="The Info of the team"),
         })
+        self.input_model_delete_ip_timeout = api.model('DeleteTimeoutIPInput', {
+            "ipaddr": fields.String(example="127.0.0.1",required=True, description="The IP address to remove from timeout",min_length=7, max_length=15),
+        })
+        self.response_model_simple_response = api.model('SimpleResponse', {
+            "message": fields.String(default='OK',required=True, description="The result of this operation"),
+        })
 
