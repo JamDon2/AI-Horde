@@ -72,6 +72,7 @@ def is_ip_safe(ipaddr):
 
 def report_suspicion(ipaddr):
 	'''Increases the suspicion of an IP in redis temporarily'''
+	logger.warning([ip_s_r,ipaddr])
 	if not ip_s_r:
 		global test_timeout
 		test_timeout = test_timeout + test_timeout + 1
@@ -83,6 +84,7 @@ def report_suspicion(ipaddr):
 	if current_suspicion == None:
 		current_suspicion = 0
 	current_suspicion = int(current_suspicion)
+	logger.warning(current_suspicion)
 	ip_s_r.setex(ipaddr, timedelta(hours=24), current_suspicion + 1)
 	# Fibonacci FTW!
 	timeout = (current_suspicion + current_suspicion + 1) * 3
