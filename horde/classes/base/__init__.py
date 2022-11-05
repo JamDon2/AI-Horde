@@ -1072,10 +1072,10 @@ class User:
     def ensure_kudos_positive(self):
         if self.kudos < 0 and self.is_anon():
             self.kudos = 0
-        elif self.kudos < 1 and self.is_pseudonymous():
-            self.kudos = 1
-        elif self.kudos < 2:
-            self.kudos = 2
+        elif self.kudos < 50 and self.is_pseudonymous():
+            self.kudos = 10
+        elif self.kudos < 50:
+            self.kudos = 100
 
     def is_anon(self):
         if self.oauth_id == 'anon':
