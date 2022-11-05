@@ -540,7 +540,7 @@ class Worker:
             # Every 10 minutes of uptime gets 100 kudos rewarded
             if self.uptime - self.last_reward_uptime > self.uptime_reward_threshold:
                 if self.team:
-                    self.team.record_uptime(self.uptime - self.last_reward_uptime)
+                    self.team.record_uptime(self.uptime_reward_threshold)
                 kudos = self.calculate_uptime_reward()
                 self.modify_kudos(kudos,'uptime')
                 self.user.record_uptime(kudos)
@@ -687,7 +687,7 @@ class Worker:
             "nsfw": self.nsfw,
             "trusted": self.user.trusted,
             "models": self.models,
-            "team": self.team.id if self.team else 'None',
+            "team": {"id": self.team.id,"name": self.team.name} if self.team else 'None',
         }
         if details_privilege >= 2:
             ret_dict['paused'] = self.paused
@@ -1369,7 +1369,7 @@ class Team:
         ret_dict = {
             "name": self.name,
             "id": self.id,
-            "creator": self.user,
+            "creator": self.user.get_unique_alias(),
             "contributions": self.contributions,
             "requests_fulfilled": self.fulfilments,
             "kudos": self.kudos,

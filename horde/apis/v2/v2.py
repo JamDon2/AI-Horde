@@ -873,23 +873,23 @@ class Teams(Resource):
             teams_ret.append(team.get_details())
         return(teams_ret,200)
 
-    put_parser = reqparse.RequestParser()
-    put_parser.add_argument("apikey", type=str, required=True, help="A User API key", location='headers')
-    put_parser.add_argument("name", type=str, required=True, location="json")
-    put_parser.add_argument("info", type=str, required=False, location="json")
+    post_parser = reqparse.RequestParser()
+    post_parser.add_argument("apikey", type=str, required=True, help="A User API key", location='headers')
+    post_parser.add_argument("name", type=str, required=True, location="json")
+    post_parser.add_argument("info", type=str, required=False, location="json")
 
 
     decorators = [limiter.limit("30/minute", key_func = get_request_path)]
-    @api.expect(put_parser, models.input_model_team_create, validate=True)
+    @api.expect(post_parser, models.input_model_team_create, validate=True)
     @api.marshal_with(models.response_model_team_modify, code=200, description='Create Team', skip_none=True)
     @api.response(400, 'Validation Error', models.response_model_error)
     @api.response(401, 'Invalid API Key', models.response_model_error)
     @api.response(403, 'Access Denied', models.response_model_error)
-    def put(self, team_id = ''):
+    def post(self, team_id = ''):
         '''Create a new team.
         Only trusted users can create new teams.
         '''
-        self.args = self.put_parser.parse_args()
+        self.args = self.post_parser.parse_args()
         user = db.find_user_by_api_key(self.args['apikey'])
         if not user:
             raise e.InvalidAPIKey('User action: ' + 'PUT Teams')
