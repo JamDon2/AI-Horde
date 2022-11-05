@@ -20,7 +20,7 @@ else:
 ip_t_r = None
 logger.init("IP Timeout Cache", status="Connecting")
 if is_redis_up():
-	ip_s_r = get_ipaddr_timeout_db()
+	ip_t_r = get_ipaddr_timeout_db()
 	logger.init_ok("IP Timeout Cache", status="Connected")
 else:
 	logger.init_err("IP Timeout Cache", status="Failed")
@@ -72,7 +72,6 @@ def is_ip_safe(ipaddr):
 
 def report_suspicion(ipaddr):
 	'''Increases the suspicion of an IP in redis temporarily'''
-	logger.warning([ip_s_r,ipaddr])
 	if not ip_s_r:
 		global test_timeout
 		test_timeout = test_timeout + test_timeout + 1
@@ -84,7 +83,6 @@ def report_suspicion(ipaddr):
 	if current_suspicion == None:
 		current_suspicion = 0
 	current_suspicion = int(current_suspicion)
-	logger.warning(current_suspicion)
 	ip_s_r.setex(ipaddr, timedelta(hours=24), current_suspicion + 1)
 	# Fibonacci FTW!
 	timeout = (current_suspicion + current_suspicion + 1) * 3
@@ -113,10 +111,8 @@ def retrieve_timeout(ipaddr):
 		return(test_timeout*3*60)
 	has_timeout = ip_t_r.get(ipaddr)
 	if not bool(has_timeout):
-		logger.warning(f"No timeout found for {ipaddr}")
 		return(0)
 	ttl = ip_t_r.ttl(ipaddr)
-	logger.warning(f"{int(ttl)} found for {ipaddr}")
 	return(int(ttl))
 
 def delete_timeout(ipaddr):
