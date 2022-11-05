@@ -59,7 +59,7 @@ class AsyncGenerate(AsyncGenerate):
             # We actually block unsafe IPs for now to combat CP
             if not self.safe_ip:
                 raise e.NotTrusted
-        if self.args.source_mask and self.args.source_processing == 'img2img':
+        if not self.args.source_image:
             raise e.SourceMaskUnnecessary
         if len(self.args['prompt'].split()) > 500:
             raise e.InvalidPromptSize(self.username)
@@ -105,9 +105,8 @@ class SyncGenerate(SyncGenerate):
                 if self.safe_ip == False:
                     self.safe_ip = False
                     raise e.NotTrusted
-        if self.args.source_mask and self.args.source_processing == 'img2img':
+        if self.args.source_image:
             raise e.SourceMaskUnnecessary
-            raise e.InvalidSize(self.username)
         if len(self.args['prompt'].split()) > 80:
             raise e.InvalidPromptSize(self.username)
 

@@ -92,7 +92,7 @@ class WaitingPrompt(WaitingPrompt):
                 prompt_payload["source_image"] = self.source_image
             if procgen.worker.bridge_version > 3:
                 prompt_payload["source_processing"] = self.source_processing
-                if self.source_processing != 'img2img' and self.source_mask:
+                if self.source_mask:
                     prompt_payload["source_mask"] = self.source_mask
         else:
             prompt_payload = {}
@@ -319,6 +319,11 @@ class Database(Database):
 class News(News):
 
     STABLE_HORDE_NEWS = [
+        {
+            "date_published": "2022-11-05",
+            "newspiece": "Workers can now [join teams](https://www.patreon.com/posts/teams-74247978) to get aggregated stats.",
+            "importance": "Information"
+        },
         {
             "date_published": "2022-11-02",
             "newspiece": "The horde can now generate images up to 3072x3072 and 500 steps! However you need to already have the kudos to burn to do so!",

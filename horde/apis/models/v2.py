@@ -71,12 +71,12 @@ class Models:
             'seed': fields.String(description="The seed to use to generete this request"),
         })
         self.response_model_generations_skipped = api.model('NoValidRequestFound', {
-            'worker_id': fields.Integer(description="How many waiting requests were skipped because they demanded a specific worker"),
-            'performance': fields.Integer(description="How many waiting requests were skipped because they demanded a specific worker"),
-            'nsfw': fields.Integer(description="How many waiting requests were skipped because they demanded a nsfw generation which this worker does not provide."),
-            'blacklist': fields.Integer(description="How many waiting requests were skipped because they demanded a generation with a word that this worker does not accept."),
-            'untrusted': fields.Integer(description="How many waiting requests were skipped because they demanded a trusted worker which this worker is not."),
-            'models': fields.Integer(example=0,description="How many waiting requests were skipped because they demanded a different model than what this worker provides."),
+            'worker_id': fields.Integer(description="How many waiting requests were skipped because they demanded a specific worker", min=0),
+            'performance': fields.Integer(description="How many waiting requests were skipped because they demanded a specific worker", min=0),
+            'nsfw': fields.Integer(description="How many waiting requests were skipped because they demanded a nsfw generation which this worker does not provide.", min=0),
+            'blacklist': fields.Integer(description="How many waiting requests were skipped because they demanded a generation with a word that this worker does not accept.", min=0),
+            'untrusted': fields.Integer(description="How many waiting requests were skipped because they demanded a trusted worker which this worker is not.", min=0),
+            'models': fields.Integer(example=0,description="How many waiting requests were skipped because they demanded a different model than what this worker provides.", min=0),
         })
 
         self.response_model_job_pop = api.model('GenerationPayload', {

@@ -184,9 +184,6 @@ class WaitingPrompt:
         if avg_things_per_sec == 0:
             avg_things_per_sec = 1
         wait_time = queued_things / avg_things_per_sec
-        # someone said wait_time can be -1. I don't believe them, but I check anyway
-        if wait_time < 0:
-            wait_time = 0
         # We add the expected running time of our processing gens
         highest_expected_time_left = 0
         for procgen in self.processing_gens:

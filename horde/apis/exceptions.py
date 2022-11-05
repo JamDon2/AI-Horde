@@ -58,8 +58,8 @@ class ImageValidationFailed(wze.BadRequest):
 
 class SourceMaskUnnecessary(wze.BadRequest):
     def __init__(self):
-        self.specific = f"Please do not pass a source_mask unless you also specify source_processing as 'inpainting' or 'outpainting'"
-        self.log = f"Tried to pass source_mask with img2img"
+        self.specific = f"Please do not pass a source_mask unless you are sending a source_image as well"
+        self.log = f"Tried to pass source_mask with txt2img"
 
 class InvalidAPIKey(wze.Unauthorized):
     def __init__(self, subject):
