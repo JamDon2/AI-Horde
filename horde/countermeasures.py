@@ -90,7 +90,9 @@ def retrieve_suspicion(ipaddr):
 	'''Checks the current suspicion of an IP address'''
 	if not ip_s_r:
 		return(0)
-	current_suspicion = ip_s_r.get(ipaddr, 0)
+	current_suspicion = ip_s_r.get(ipaddr)
+	if current_suspicion == None:
+		current_suspicion = 0
 	return(current_suspicion)
 
 def set_timeout(ipaddr, minutes):
