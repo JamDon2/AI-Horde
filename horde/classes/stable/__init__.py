@@ -247,9 +247,9 @@ class Worker(Worker):
             is_matching = False
             skipped_reason = 'painting'
         # These samplers are currently crashing nataili. Disabling them from these workers until we can figure it out
-        if waiting_prompt.gen_payload.get('sampler_name', 'k_euler') in ['DDIM', 'PLMS'] and self.bridge_version >= 3:
+        if waiting_prompt.gen_payload.get('sampler_name', 'k_euler_a') in ["k_dpm_fast", "k_dpm_adaptive", "k_dpmpp_2s_a", "k_dpmpp_2m"] and self.bridge_version < 5:
             is_matching = False
-            skipped_reason = 'worker_id'
+            skipped_reason = 'bridge_version'
         if waiting_prompt.source_image and not self.allow_img2img:
             is_matching = False
             skipped_reason = 'img2img'
