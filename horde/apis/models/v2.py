@@ -134,7 +134,7 @@ class Models:
             "paused": fields.Boolean(description="(Mods only) Set to true to pause this worker."),
             "info": fields.String(description="You can optionally provide a server note which will be seen in the server details. No profanity allowed!",min_length=2,max_length=1000),
             "name": fields.String(description="When this is set, it will change the worker's name. No profanity allowed!",min_length=5,max_length=100),
-            "team": fields.String(example="0bed257b-e57c-4327-ac64-40cdfb1ac5e6", description="The team towards which this worker contributes kudos.  It an empty string ('') is passed, it will leave the worker without a team. No profanity allowed!",min_length=3,max_length=100),
+            "team": fields.String(example="0bed257b-e57c-4327-ac64-40cdfb1ac5e6", description="The team towards which this worker contributes kudos.  It an empty string ('') is passed, it will leave the worker without a team. No profanity allowed!", max_length=36),
         })
 
         self.response_model_worker_modify = api.model('ModifyWorker', {

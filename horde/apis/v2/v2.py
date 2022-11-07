@@ -59,10 +59,14 @@ handle_no_valid_workers = api.errorhandler(e.NoValidWorkers)(e.handle_bad_reques
 handle_no_valid_actions = api.errorhandler(e.NoValidActions)(e.handle_bad_requests)
 handle_maintenance_mode = api.errorhandler(e.MaintenanceMode)(e.handle_bad_requests)
 
-regex_blacklists = []
-if os.getenv("BLACKLIST1"):
-    for blacklist in ["BLACKLIST1","BLACKLIST2"]:
-        regex_blacklists.append(re.compile(os.getenv(blacklist), re.IGNORECASE))
+regex_blacklists1 = []
+regex_blacklists2 = []
+if os.getenv("BLACKLIST1A"):
+    for blacklist in ["BLACKLIST1A","BLACKLIST1B"]:
+        regex_blacklists1.append(re.compile(os.getenv(blacklist), re.IGNORECASE))
+if os.getenv("BLACKLIST2A"):
+    for blacklist in ["BLACKLIST2A"]:
+        regex_blacklists2.append(re.compile(os.getenv(blacklist), re.IGNORECASE))
 
 # Used to for the flask limiter, to limit requests per url paths
 def get_request_path():
@@ -127,9 +131,11 @@ class GenerateTemplate(Resource):
             prompt, negprompt = self.args.prompt.split("###", 1)
         else:
             prompt = self.args.prompt
-        for blacklist in regex_blacklists:
-            if blacklist.search(prompt):
-                prompt_suspicion += 1
+        for blacklist_regex in [regex_blacklists1, regex_blacklists2]:
+            for blacklist in blacklist_regex:
+                if blacklist.search(prompt):
+                    prompt_suspicion += 1
+                    break
         if prompt_suspicion >= 2:
             self.user.report_suspicion(1,Suspicions.CORRUPT_PROMPT)
             cm.report_suspicion(self.user_ip)
