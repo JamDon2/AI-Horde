@@ -37,6 +37,7 @@ class Models(v2.Models):
             'width': fields.Integer(required=False,default=512,description="The width of the image to generate", min=64, max=3072, multiple=64), 
             'seed_variation': fields.Integer(required=False, example=1, min = 1, max=1000, description="If passed with multiple n, the provided seed will be incremented every time by this value"),
             'use_gfpgan': fields.Boolean(description="Set to true to process the generated image with GFPGAN (face correction)"),
+            'karras': fields.Boolean(default=False,description="Set to True to enable karras noise scheduling tweaks"),
             'use_real_esrgan': fields.Boolean(description="Set to true to process the generated image with RealESRGAN"),
             'use_ldsr': fields.Boolean(description="Set to true to process the generated image with LDSR"),
             'use_upscaling': fields.Boolean(description="Set to true to upscale the image"),
