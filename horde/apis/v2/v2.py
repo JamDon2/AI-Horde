@@ -316,7 +316,11 @@ class JobPop(Resource):
                 # We don't report on secret skipped reasons
                 # as they're typically countermeasures to raids
                 if skipped_reason != "secret":
-                    self.skipped[skipped_reason] =  self.skipped.get(skipped_reason,0) + 1
+                    self.skipped[skipped_reason] = self.skipped.get(skipped_reason,0) + 1
+                continue
+            # There is a chance that by the time we finished all the checks, another worker picked up the WP. 
+            # So we do another final check here before picking it up to avoid sending the same WP to two workers by mistake.
+            if not wp.needs_gen():
                 continue
             return(self.start_worker(wp), 200)
         # We report maintenance exception only if we couldn't find any jobs

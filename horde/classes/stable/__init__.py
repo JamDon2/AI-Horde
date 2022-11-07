@@ -151,7 +151,7 @@ class WaitingPrompt(WaitingPrompt):
 
     def get_accurate_steps(self):
         steps = self.steps
-        if self.sampler in ['k_heun', "k_dpm_2", "k_dpm_2_a"]:
+        if self.sampler in ['k_heun', "k_dpm_2", "k_dpm_2_a", "k_dpmpp_2s_a"]:
             # These three sampler do double steps per iteration, so they're at half the speed
             # So we adjust the things to take that into account
             steps *= 2
