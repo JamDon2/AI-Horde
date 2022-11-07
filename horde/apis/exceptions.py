@@ -61,6 +61,11 @@ class SourceMaskUnnecessary(wze.BadRequest):
         self.specific = f"Please do not pass a source_mask unless you are sending a source_image as well"
         self.log = f"Tried to pass source_mask with txt2img"
 
+class UnsupportedSampler(wze.BadRequest):
+    def __init__(self):
+        self.specific = f"This sampler is not supported in this mode the moment"
+        self.log = None
+
 class InvalidAPIKey(wze.Unauthorized):
     def __init__(self, subject):
         self.specific = "No user matching sent API Key. Have you remembered to register at https://stablehorde.net/register ?"

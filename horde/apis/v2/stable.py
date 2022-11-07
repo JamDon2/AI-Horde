@@ -61,6 +61,8 @@ class AsyncGenerate(AsyncGenerate):
                 raise e.NotTrusted
         if not self.args.source_image and self.args.source_mask:
             raise e.SourceMaskUnnecessary
+        if self.args.source_image and self.args.source_processing == "img2img" and self.params.get("sampler_name") in ["k_dpm_fast", "k_dpm_adaptive", "k_dpmpp_2s_a", "k_dpmpp_2m"]:
+            raise e.UnsupportedSampler
         if len(self.args['prompt'].split()) > 500:
             raise e.InvalidPromptSize(self.username)
 
