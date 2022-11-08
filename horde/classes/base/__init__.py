@@ -1070,10 +1070,12 @@ class User:
         self.kudos_details[action] = round(self.kudos_details.get(action,0) + kudos, 2)
 
     def ensure_kudos_positive(self):
-        if self.kudos < 0 and self.is_anon():
-            self.kudos = 0
-        elif self.kudos < 51 and self.is_pseudonymous():
-            self.kudos = 51
+        if self.is_anon(): 
+            if self.kudos < 0:
+                self.kudos = 0
+        elif self.is_pseudonymous():
+            if self.kudos < 51:
+                self.kudos = 51
         elif self.kudos < 102:
             self.kudos = 102
 
