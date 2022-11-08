@@ -143,7 +143,7 @@ class WaitingPrompt(WaitingPrompt):
         '''Returns True if this wp requires that the user already has the required kudos to fulfil it
         else returns False
         '''
-        if self.get_accurate_steps() > 100:
+        if self.get_accurate_steps() > 50:
             return(True)
         if self.width * self.height > 1024*1024:
             return(True)
