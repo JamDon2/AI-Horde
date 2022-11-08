@@ -136,7 +136,7 @@ class TooManyNewIPs(wze.Forbidden):
 
 class KudosUpfront(wze.Forbidden):
     def __init__(self, kudos_required, username):
-        self.specific = f"For requests over 1024x1024 or over 100 steps, the client needs to already have the required kudos. This request requires {kudos_required} kudos to fulfil."
+        self.specific = f"For requests over 1024x1024 or over 50 steps (25 for k_heun and k_dpm_2*), the client needs to already have the required kudos. This request requires {kudos_required} kudos to fulfil."
         self.log = f"{username} attempted request for {kudos_required} kudos without having enough."
 
 class InvalidProcGen(wze.NotFound):
