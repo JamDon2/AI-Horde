@@ -324,6 +324,7 @@ class ProcessingGeneration:
         self.seed = kwargs.get('seed', None)
         self.things_per_sec = self.owner.db.stats.record_fulfilment(things=self.owner.things, starting_time=self.start_time, model=self.model)
         self.kudos = self.get_gen_kudos()
+        self.cancelled = False
         thread = threading.Thread(target=self.record, args=())
         thread.start()        
         return(self.kudos)
@@ -336,13 +337,14 @@ class ProcessingGeneration:
         # We  don't want cancelled requests to raise suspicion
         self.things_per_sec = self.worker.get_performance_average()
         self.kudos = self.get_gen_kudos()
-        thread = threading.Thread(target=self.record, args=(True))
+        self.cancelled = True
+        thread = threading.Thread(target=self.record, args=())
         thread.start()   
         return(self.kudos)
     
-    def record(self, cancelled=False):
+    def record(self):
         cancel_txt = ""
-        if cancelled:
+        if self.cancelled:
             cancel_txt = " Cancelled"
         if self.fake and self.worker.user == self.owner.user:
             # We do not record usage for paused workers, unless the requestor was the same owner as the worker
