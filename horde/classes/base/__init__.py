@@ -322,16 +322,10 @@ class ProcessingGeneration:
         self.generation = generation
         # Support for two typical properties 
         self.seed = kwargs.get('seed', None)
-        things_per_sec = self.owner.db.stats.record_fulfilment(things=self.owner.things, starting_time=self.start_time, model=self.model)
+        self.things_per_sec = self.owner.db.stats.record_fulfilment(things=self.owner.things, starting_time=self.start_time, model=self.model)
         self.kudos = self.get_gen_kudos()
-        if self.fake and self.worker.user == self.owner.user:
-            # We do not record usage for paused workers, unless the requestor was the same owner as the worker
-            self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = things_per_sec)
-            logger.info(f"Fake Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
-        else:
-            self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = things_per_sec)
-            self.owner.record_usage(raw_things = self.owner.things, kudos = self.kudos)
-            logger.info(f"New Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
+        thread = threading.Thread(target=self.record, args=())
+        thread.start()        
         return(self.kudos)
 
     def cancel(self):
@@ -340,18 +334,25 @@ class ProcessingGeneration:
             return
         self.faulted = True
         # We  don't want cancelled requests to raise suspicion
-        things_per_sec = self.worker.get_performance_average()
+        self.things_per_sec = self.worker.get_performance_average()
         self.kudos = self.get_gen_kudos()
-        if self.fake and self.worker.user == self.owner.user:
-            # We do not record usage for paused workers, unless the requestor was the same owner as the worker
-            self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = things_per_sec)
-            logger.info(f"Fake Cancelled Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
-        else:
-            self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = things_per_sec)
-            self.owner.record_usage(raw_things = self.owner.things, kudos = self.kudos)
-            logger.info(f"Cancelled Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
+        thread = threading.Thread(target=self.record, args=(True))
+        thread.start()   
         return(self.kudos)
     
+    def record(self, cancelled=False):
+        cancel_txt = ""
+        if cancelled:
+            cancel_txt = " Cancelled"
+        if self.fake and self.worker.user == self.owner.user:
+            # We do not record usage for paused workers, unless the requestor was the same owner as the worker
+            self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = self.things_per_sec)
+            logger.info(f"Fake{cancel_txt} Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
+        else:
+            self.worker.record_contribution(raw_things = self.owner.things, kudos = self.kudos, things_per_sec = self.things_per_sec)
+            self.owner.record_usage(raw_things = self.owner.things, kudos = self.kudos)
+            logger.info(f"New{cancel_txt} Generation worth {self.kudos} kudos, delivered by worker: {self.worker.name}")
+
     def abort(self):
         '''Called when this request needs to be stopped without rewarding kudos. Say because it timed out due to a worker crash'''
         if self.is_completed() or self.is_faulted():
