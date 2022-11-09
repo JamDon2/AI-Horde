@@ -88,10 +88,11 @@ class AsyncGenerate(AsyncGenerate):
             source_mask = convert_source_image_to_webp(self.args.source_mask),
             ipaddr = self.user_ip,
         )
-        if self.wp.requires_upfront_kudos():
+        needs_kudos,resolution = self.wp.requires_upfront_kudos()
+        if needs_kudos:
             required_kudos = self.wp.kudos * self.wp.n
             if required_kudos > self.user.kudos:
-                raise e.KudosUpfront(required_kudos, self.username)
+                raise e.KudosUpfront(required_kudos, self.username, resolution)
             else:
                 logger.warning(f"{self.username} requested generation {self.wp.id} requiring upfront kudos: {required_kudos}")
     
@@ -132,10 +133,11 @@ class SyncGenerate(SyncGenerate):
             source_mask = convert_source_image_to_webp(self.args.source_mask),
             ipaddr = self.user_ip,
         )
-        if self.wp.requires_upfront_kudos():
+        needs_kudos,resolution = self.wp.requires_upfront_kudos()
+        if needs_kudos:
             required_kudos = self.wp.kudos * self.wp.n
             if required_kudos > self.user.kudos:
-                raise e.KudosUpfront(required_kudos, self.username)
+                raise e.KudosUpfront(required_kudos, self.username, resolution)
             else:
                 logger.warning(f"{self.username} requested generation {self.wp.id} requiring upfront kudos: {required_kudos}")
 
