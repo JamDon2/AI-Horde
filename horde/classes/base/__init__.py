@@ -442,6 +442,7 @@ class Worker:
         self.suspicions = []
         self.db = db
         self.bridge_version = 1
+        self.threads = 1
 
     def create(self, user, name, **kwargs):
         self.user = user
@@ -533,6 +534,7 @@ class Worker:
         self.blacklist = kwargs.get("blacklist", [])
         self.ipaddr = kwargs.get("ipaddr", None)
         self.bridge_version = kwargs.get("bridge_version", 1)
+        self.threads = kwargs.get("threads", 1)
         if not kwargs.get("safe_ip", True):
             if not self.user.trusted:
                 self.report_suspicion(reason = Suspicions.UNSAFE_IP)
@@ -682,6 +684,7 @@ class Worker:
             "kudos_rewards": self.kudos,
             "kudos_details": self.kudos_details,
             "performance": self.get_performance(),
+            "threads": self.threads,
             "uptime": self.uptime,
             "maintenance_mode": self.maintenance,
             "info": self.info,
@@ -715,6 +718,7 @@ class Worker:
             "uptime": self.uptime,
             "paused": self.paused,
             "maintenance": self.maintenance,
+            "threads": self.threads,
             "info": self.info,
             "nsfw": self.nsfw,
             "blacklist": self.blacklist.copy(),
@@ -739,6 +743,7 @@ class Worker:
         self.id = saved_dict["id"]
         self.uptime = saved_dict.get("uptime",0)
         self.maintenance = saved_dict.get("maintenance",False)
+        self.threads = saved_dict.get("threads",1)
         self.paused = saved_dict.get("paused",False)
         self.info = saved_dict.get("info",None)
         team_id = saved_dict.get("team",None)
@@ -1668,7 +1673,7 @@ class Database:
         count = 0
         for worker in self.workers.values():
             if not worker.is_stale():
-                count += 1
+                count += worker.threads
         return(count)
 
     def compile_workers_by_ip(self):
@@ -1809,7 +1814,7 @@ class Database:
                     "eta": 0,
                 }
                 models_dict[model_name] = models_dict.get(model_name, mode_dict_template)
-                models_dict[model_name]["count"] += 1
+                models_dict[model_name]["count"] += worker.threads
         things_per_model = waiting_prompts.count_things_per_model()
         for model_name in things_per_model:
             # This shouldn't happen, but I'm checking anyway

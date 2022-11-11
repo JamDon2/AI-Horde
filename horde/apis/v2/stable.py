@@ -146,16 +146,17 @@ class JobPop(JobPop):
 
     def check_in(self):
         self.worker.check_in(
-            self.args['max_pixels'], 
-            nsfw = self.args['nsfw'], 
+            self.args.max_pixels, 
+            nsfw = self.args.nsfw, 
             blacklist = self.blacklist, 
             models = self.models, 
             safe_ip = self.safe_ip,
             ipaddr = self.worker_ip,
-            bridge_version = self.args["bridge_version"],
-            allow_img2img = self.args["allow_img2img"],
-            allow_painting = self.args["allow_painting"],
-            allow_unsafe_ipaddr = self.args["allow_unsafe_ipaddr"],
+            threads = self.args.threads,
+            bridge_version = self.args.bridge_version,
+            allow_img2img = self.args.allow_img2img,
+            allow_painting = self.args.allow_painting,
+            allow_unsafe_ipaddr = self.args.allow_unsafe_ipaddr,
         )
   
 class HordeLoad(HordeLoad):
