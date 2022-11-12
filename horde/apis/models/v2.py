@@ -45,6 +45,7 @@ class Models:
         self.response_model_worker_details_lite = api.model('WorkerDetailsLite', {
             "name": fields.String(description="The Name given to this worker."),
             "id": fields.String(description="The UUID of this worker."),
+            "online": fields.Boolean(description="True if the worker has checked-in the past 5 minutes."),
         })
         self.response_model_team_details_lite = api.model('TeamDetailsLite', {
             "name": fields.String(description="The Name given to this team."),

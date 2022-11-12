@@ -691,6 +691,7 @@ class Worker:
             "nsfw": self.nsfw,
             "trusted": self.user.trusted,
             "models": self.models,
+            "online": not self.is_stale(),
             "team": {"id": self.team.id,"name": self.team.name} if self.team else 'None',
         }
         if details_privilege >= 2:
@@ -1372,7 +1373,7 @@ class Team:
     @logger.catch(reraise=True)
     def get_details(self, details_privilege = 0):
         '''We display these in the workers list json'''
-        worker_list = [{"id": worker.id, "name":worker.name} for worker in self.db.find_workers_by_team(self)]
+        worker_list = [{"id": worker.id, "name":worker.name, "online": not worker.is_stale()} for worker in self.db.find_workers_by_team(self)]
         perf_avg, perf_total = self.get_performance()
         ret_dict = {
             "name": self.name,
