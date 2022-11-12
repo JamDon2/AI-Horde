@@ -913,6 +913,7 @@ class User:
         self.suspicions = []
         self.contact = None
         self.db = db
+        self.min_kudos = 0
 
     def create_anon(self):
         self.username = 'Anonymous'
@@ -944,6 +945,7 @@ class User:
         self.last_active = datetime.now()
         self.check_for_bad_actor()
         self.id = self.db.register_new_user(self)
+        self.set_min_kudos()
         self.contributions = {
             thing_name: 0,
             "fulfillments": 0
@@ -952,6 +954,14 @@ class User:
             thing_name: 0,
             "requests": 0
         }
+
+    def set_min_kudos(self):
+        if self.is_anon(): 
+            self.min_kudos = -50
+        elif self.is_pseudonymous():
+            self.min_kudos = 14
+        else:
+            self.min_kudos = 25
 
     def check_for_bad_actor(self):
         if len(self.username) > 30:
@@ -1079,14 +1089,8 @@ class User:
         self.kudos_details[action] = round(self.kudos_details.get(action,0) + kudos, 2)
 
     def ensure_kudos_positive(self):
-        if self.is_anon(): 
-            if self.kudos < -50:
-                self.kudos = -50
-        elif self.is_pseudonymous():
-            if self.kudos < 14:
-                self.kudos = 14
-        elif self.kudos < 25:
-            self.kudos = 25
+        if self.kudos < self.min_kudos:
+            self.kudos = self.min_kudos
 
     def is_anon(self):
         if self.oauth_id == 'anon':
@@ -1274,6 +1278,7 @@ class User:
             recalc_kudos =  (self.contributions['fulfillments'] - self.usage['requests']) * multiplier
             self.kudos = recalc_kudos + self.kudos_details.get('admin',0) + self.kudos_details.get('received',0) - self.kudos_details.get('gifted',0)
             self.kudos_details['accumulated'] = recalc_kudos
+        self.set_min_kudos()
         self.ensure_kudos_positive()
         duplicate_user = self.db.find_user_by_id(self.id)
         if duplicate_user and duplicate_user != self:
@@ -1838,7 +1843,7 @@ class Database:
             return([0,'Something went wrong when receiving kudos. Please contact the mods.'])
         if amount < 0:
             return([0,'Nice try...'])
-        if amount > source_user.kudos:
+        if amount > source_user.kudos - source_user.min_kudos:
             return([0,'Not enough kudos.'])
         source_user.modify_kudos(-amount, 'gifted')
         dest_user.modify_kudos(amount, 'received')
