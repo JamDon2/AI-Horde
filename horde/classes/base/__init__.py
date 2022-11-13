@@ -1107,11 +1107,11 @@ class User:
     def get_concurrency(self, models_requested = [], models_dict = {}):
         if not self.is_anon():
             return(self.concurrency)
-        allowed_concurrency = 5
+        allowed_concurrency = 0
         for model_name in models_requested:
             # We allow 10 concurrency per worker serving that model
             allowed_concurrency += models_dict.get(model_name,{"count":0})["count"] * 10
-        logger.debug(allowed_concurrency)
+        # logger.debug([allowed_concurrency,models_dict.get(model_name,{"count":0})["count"]])
         return(allowed_concurrency)
             
 
@@ -1324,6 +1324,8 @@ class Team:
     def get_performance(self):
         all_performances = []
         for worker in self.db.find_workers_by_team(self):
+            if worker.is_stale():
+                continue
             all_performances.append(worker.get_performance_average())
         if len(all_performances):
             perf_avg = round(sum(all_performances) / len(all_performances) / thing_divisor,1)

@@ -97,7 +97,7 @@ class GenerateTemplate(Resource):
         self.validate()
         self.initiate_waiting_prompt()
         worker_found = False
-        for worker in db.workers.values():
+        for worker in list(db.workers.values()):
             if len(self.workers) and worker.id not in self.workers:
                 continue
             if worker.can_generate(self.wp)[0]:
@@ -125,7 +125,7 @@ class GenerateTemplate(Resource):
         if self.args.params:
             n = self.args.params.get('n',1)
         user_limit = self.user.get_concurrency(self.args["models"],db.get_available_models(waiting_prompts,lite_dict=True))
-        if wp_count + n >= user_limit:
+        if wp_count + n > user_limit:
             raise e.TooManyPrompts(self.username, wp_count + n, user_limit)
         ip_timeout = cm.retrieve_timeout(self.user_ip)
         if ip_timeout:

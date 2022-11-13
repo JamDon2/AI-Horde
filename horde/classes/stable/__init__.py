@@ -144,9 +144,11 @@ class WaitingPrompt(WaitingPrompt):
         else returns False
         '''
         queue = self._waiting_prompts.count_totals()["queued_requests"]
-        max_res = 1024 - round(queue * 0.85)
+        max_res = 1124 - round(queue * 0.9)
         if max_res < 576:
             max_res = 576
+        if max_res > 1024:
+            max_res = 1024
         if self.get_accurate_steps() > 50:
             return(True,max_res)
         if self.width * self.height > max_res*max_res:
