@@ -1104,6 +1104,17 @@ class User:
         except ValueError:
             return(False)
 
+    def get_concurrency(self, models_requested = [], models_dict = {}):
+        if not self.is_anon():
+            return(self.concurrency)
+        allowed_concurrency = 5
+        for model_name in models_requested:
+            # We allow 10 concurrency per worker serving that model
+            allowed_concurrency += models_dict.get(model_name,{"count":0})["count"] * 10
+        logger.debug(allowed_concurrency)
+        return(allowed_concurrency)
+            
+
     @logger.catch(reraise=True)
     def get_details(self, details_privilege = 0):
         ret_dict = {
@@ -1802,8 +1813,7 @@ class Database:
         del self.teams[team.id]
         self.initiate_save()
 
-
-    def get_available_models(self, waiting_prompts):
+    def get_available_models(self, waiting_prompts, lite_dict=False):
         models_dict = {}
         for worker in self.workers.values():
             if worker.is_stale():
@@ -1821,7 +1831,10 @@ class Database:
                 }
                 models_dict[model_name] = models_dict.get(model_name, mode_dict_template)
                 models_dict[model_name]["count"] += worker.threads
+        if lite_dict:
+            return(models_dict)
         things_per_model = waiting_prompts.count_things_per_model()
+        # If we request a lite_dict, we only want worker count per model and a dict format
         for model_name in things_per_model:
             # This shouldn't happen, but I'm checking anyway
             if model_name not in models_dict:
