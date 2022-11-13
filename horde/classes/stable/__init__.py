@@ -156,9 +156,14 @@ class WaitingPrompt(WaitingPrompt):
         return(False,max_res)
 
     def get_accurate_steps(self):
+        if self.sampler in ['k_dpm_adaptive']:
+            # This sampler chooses the steps amount automatically 
+            # and disregards the steps value from the user
+            # so we just calculate it as an average 50 steps
+            return(50)
         steps = self.steps
         if self.sampler in ['k_heun', "k_dpm_2", "k_dpm_2_a", "k_dpmpp_2s_a"]:
-            # These three sampler do double steps per iteration, so they're at half the speed
+            # These samplerS do double steps per iteration, so they're at half the speed
             # So we adjust the things to take that into account
             steps *= 2
         if self.source_image and self.source_processing == "img2img":
