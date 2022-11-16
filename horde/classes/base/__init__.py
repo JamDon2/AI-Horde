@@ -160,6 +160,10 @@ class WaitingPrompt:
     def get_status(self, lite = False):
         ret_dict = self.count_processing_gens()
         ret_dict["waiting"] = self.n
+        # This might still happen due to a race condition on parallel requests. Not sure how to avoid it.
+        if ret_dict["waiting"] < 0:
+            logger.error("Request was popped more times than requested!")
+            ret_dict["waiting"] = 0
         ret_dict["done"] = self.is_completed()
         ret_dict["faulted"] = self.faulted
         # Lite mode does not include the generations, to spare me download size
@@ -529,7 +533,7 @@ class Worker:
     def check_in(self, **kwargs):
         self.models = [bleach.clean(model_name) for model_name in kwargs.get("models")]
         # We don't allow more workers to claim they can server more than 30 models atm (to prevent abuse)
-        del self.models[30:]
+        del self.models[50:]
         self.nsfw = kwargs.get("nsfw", True)
         self.blacklist = kwargs.get("blacklist", [])
         self.ipaddr = kwargs.get("ipaddr", None)
